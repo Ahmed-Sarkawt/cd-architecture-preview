@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Claude Code — PM Architecture Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #080a0c; --surface: #0f1214; --surface2: #161b1f;
+  --border: #1e2428; --border2: #252d33;
+  --text: #d4dbe0; --muted: #5a6975;
+  --accent: #00c9a7; --accent2: #0078ff; --accent3: #ff6b35; --accent4: #a855f7;
+  --warn: #f59e0b; --danger: #ef4444;
+  --mono: 'IBM Plex Mono', monospace; --sans: 'DM Sans', sans-serif;
+}
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.6; }
+#shell { display: flex; height: 100vh; }
+
+/* sidebar */
+#sidebar { width: 228px; min-width: 228px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+#sidebar-header { padding: 18px 16px 12px; border-bottom: 1px solid var(--border); }
+#sidebar-header .logo { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: .12em; text-transform: uppercase; }
+#sidebar-header .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+#search-btn { margin: 10px 12px; display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 7px 10px; cursor: pointer; color: var(--muted); font-size: 12px; font-family: var(--sans); transition: border-color .15s; }
+#search-btn:hover { border-color: var(--accent); color: var(--text); }
+#search-btn .kbd { margin-left: auto; font-family: var(--mono); font-size: 10px; color: var(--border2); background: var(--bg); padding: 1px 5px; border-radius: 3px; border: 1px solid var(--border2); }
+#nav { flex: 1; overflow-y: auto; padding: 8px 0 16px; }
+#nav::-webkit-scrollbar { width: 4px; } #nav::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+.ns { padding: 12px 16px 4px; font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: var(--muted); font-family: var(--mono); }
+.nl { display: flex; align-items: center; gap: 9px; padding: 6px 16px; cursor: pointer; color: var(--muted); font-size: 12.5px; transition: color .1s, background .1s; user-select: none; border-left: 2px solid transparent; }
+.nl:hover { color: var(--text); background: var(--surface2); }
+.nl.active { color: var(--accent); background: rgba(0,201,167,.06); border-left-color: var(--accent); }
+.dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+/* content */
+#content { flex: 1; overflow-y: auto; background: var(--bg); }
+#content::-webkit-scrollbar { width: 6px; } #content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+.page { display: none; padding: 36px 48px 60px; max-width: 1000px; }
+.page.active { display: block; }
+
+/* typography */
+.ph { margin-bottom: 36px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+.pt { font-family: var(--mono); font-size: 10px; color: var(--accent); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 8px; }
+.pp { font-size: 28px; font-weight: 600; color: #fff; letter-spacing: -.02em; line-height: 1.2; }
+.pd { margin-top: 10px; color: var(--muted); font-size: 14px; max-width: 600px; }
+h2 { font-size: 17px; font-weight: 600; color: #fff; margin: 32px 0 12px; letter-spacing: -.01em; }
+h3 { font-size: 14px; font-weight: 500; color: var(--text); margin: 22px 0 8px; }
+p { margin-bottom: 12px; color: var(--text); }
+ul, ol { padding-left: 20px; margin-bottom: 12px; } li { margin-bottom: 4px; color: var(--text); }
+strong { color: #fff; font-weight: 500; }
+code { font-family: var(--mono); font-size: 12px; background: var(--surface2); color: var(--accent); padding: 1px 6px; border-radius: 3px; border: 1px solid var(--border2); }
+pre { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 16px 20px; margin: 12px 0 20px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.7; color: var(--text); }
+pre code { background: none; border: none; padding: 0; color: inherit; }
+
+/* cards */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); gap: 12px; margin: 16px 0; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; transition: border-color .15s, transform .15s; }
+.card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.ci { font-size: 18px; margin-bottom: 8px; }
+.ct { font-weight: 600; font-size: 13px; color: #fff; margin-bottom: 4px; }
+.cd { font-size: 12px; color: var(--muted); }
+
+/* badges */
+.badge { display: inline-flex; align-items: center; font-family: var(--mono); font-size: 10px; padding: 2px 8px; border-radius: 20px; margin: 2px; border: 1px solid; }
+.bg { color: var(--accent); border-color: rgba(0,201,167,.3); background: rgba(0,201,167,.08); }
+.bb { color: var(--accent2); border-color: rgba(0,120,255,.3); background: rgba(0,120,255,.08); }
+.bo { color: var(--accent3); border-color: rgba(255,107,53,.3); background: rgba(255,107,53,.08); }
+.bp { color: var(--accent4); border-color: rgba(168,85,247,.3); background: rgba(168,85,247,.08); }
+.by { color: var(--warn); border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.08); }
+
+/* table */
+table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--border); }
+td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--surface); }
+
+/* callouts */
+.callout { border-radius: 8px; padding: 14px 16px; margin: 16px 0; border-left: 3px solid; font-size: 13px; }
+.ct2 { font-weight: 600; font-size: 12px; margin-bottom: 4px; }
+.callout.info { background: rgba(0,120,255,.08); border-color: var(--accent2); }
+.callout.info .ct2 { color: var(--accent2); }
+.callout.tip { background: rgba(0,201,167,.08); border-color: var(--accent); }
+.callout.tip .ct2 { color: var(--accent); }
+.callout.warn { background: rgba(245,158,11,.08); border-color: var(--warn); }
+.callout.warn .ct2 { color: var(--warn); }
+
+/* flow */
+.flow { display: flex; flex-direction: column; gap: 0; margin: 20px 0; }
+.fr { display: flex; align-items: center; }
+.fb { background: var(--surface); border: 1px solid var(--border2); border-radius: 6px; padding: 9px 14px; font-size: 12px; font-family: var(--mono); color: var(--text); white-space: nowrap; }
+.fb.g { border-color: var(--accent); color: var(--accent); }
+.fb.b { border-color: var(--accent2); color: var(--accent2); }
+.fb.o { border-color: var(--accent3); color: var(--accent3); }
+.fb.p { border-color: var(--accent4); color: var(--accent4); }
+.fa { color: var(--muted); padding: 0 8px; }
+.fd { color: var(--muted); padding: 4px 0 4px 28px; font-size: 13px; }
+
+/* stats */
+.stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin: 20px 0; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+.sn { font-family: var(--mono); font-size: 28px; font-weight: 600; color: var(--accent); line-height: 1; margin-bottom: 4px; }
+.sl { font-size: 11px; color: var(--muted); }
+
+/* overview grid */
+.og { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin: 20px 0; }
+.oc { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; cursor: pointer; transition: border-color .15s, transform .15s; position: relative; overflow: hidden; }
+.oc::before { content:''; position: absolute; top:0; left:0; right:0; height:2px; opacity:0; transition: opacity .15s; }
+.oc:hover { transform: translateY(-1px); }
+.oc:hover::before { opacity: 1; }
+.oc.g::before { background: var(--accent); } .oc:hover.g { border-color: rgba(0,201,167,.4); }
+.oc.b::before { background: var(--accent2); } .oc:hover.b { border-color: rgba(0,120,255,.4); }
+.oc.o::before { background: var(--accent3); } .oc:hover.o { border-color: rgba(255,107,53,.4); }
+.oc.p::before { background: var(--accent4); } .oc:hover.p { border-color: rgba(168,85,247,.4); }
+.oc.y::before { background: var(--warn); } .oc:hover.y { border-color: rgba(245,158,11,.4); }
+.oi { font-size: 20px; margin-bottom: 8px; }
+.ott { font-weight: 600; font-size: 13px; color: #fff; margin-bottom: 3px; }
+.of { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 5px; }
+.od { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.oa { position: absolute; bottom: 10px; right: 12px; color: var(--border2); font-size: 13px; transition: color .15s; }
+.oc:hover .oa { color: var(--muted); }
+
+/* timeline */
+.tl { border-left: 1px solid var(--border2); margin: 16px 0 16px 8px; padding-left: 20px; }
+.ti { position: relative; margin-bottom: 20px; }
+.ti::before { content:''; position:absolute; left:-25px; top:6px; width:8px; height:8px; border-radius:50%; background:var(--border2); border:1px solid var(--border2); }
+.ti.on::before { background:var(--accent); border-color:var(--accent); box-shadow:0 0 0 3px rgba(0,201,167,.15); }
+.tl-tag { font-family: var(--mono); font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 2px; }
+.tl-t { font-weight: 500; color: #fff; font-size: 13px; margin-bottom: 2px; }
+.tl-d { font-size: 12px; color: var(--muted); }
+
+/* perm grid */
+.pg { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: var(--border); border-radius: 8px; overflow: hidden; margin: 16px 0; }
+.pc { background: var(--surface); padding: 11px 13px; font-size: 12px; }
+.pc.hd { background: var(--surface2); font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.pm { font-family: var(--mono); font-size: 11px; color: #fff; font-weight: 500; }
+.pdesc { font-size: 11px; color: var(--muted); }
+
+/* search overlay */
+#overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100; align-items: flex-start; justify-content: center; padding-top: 80px; }
+#overlay.open { display: flex; }
+#sbox { background: var(--surface); border: 1px solid var(--border2); border-radius: 10px; width: 540px; max-height: 480px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+#sinp-wrap { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+#sinp { flex:1; background:none; border:none; outline:none; font-family:var(--sans); font-size:15px; color:var(--text); }
+#sinp::placeholder { color: var(--muted); }
+#sclose { background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; padding: 2px 8px; font-family: var(--mono); font-size: 11px; color: var(--muted); cursor: pointer; }
+#sclose:hover { color: var(--text); }
+#sres { overflow-y: auto; padding: 8px 0; }
+#sres::-webkit-scrollbar { width: 4px; } #sres::-webkit-scrollbar-thumb { background: var(--border2); }
+.sri { padding: 10px 16px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; transition: background .1s; }
+.sri:hover, .sri.sel { background: var(--surface2); }
+.sri-tag { font-family: var(--mono); font-size: 10px; color: var(--accent); }
+.sri-t { font-weight: 500; font-size: 13px; color: #fff; }
+.sri-d { font-size: 12px; color: var(--muted); }
+.sr-empty { padding: 20px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="shell">
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div id="sidebar-header">
+    <div class="logo">Claude Code</div>
+    <div class="sub">PM Architecture Guide</div>
+  </div>
+  <button id="search-btn">⌕ Search pages… <span class="kbd">⌘K</span></button>
+  <div id="nav">
+    <div class="ns">Start here</div>
+    <div class="nl active" data-page="overview"><span class="dot" style="background:var(--accent)"></span>Overview</div>
+    <div class="nl" data-page="data-flow"><span class="dot" style="background:var(--accent2)"></span>Data Flow</div>
+    <div class="nl" data-page="tech-stack"><span class="dot" style="background:var(--accent4)"></span>Tech Stack</div>
+    <div class="ns">Core Engine</div>
+    <div class="nl" data-page="startup"><span class="dot" style="background:var(--accent3)"></span>Startup &amp; REPL</div>
+    <div class="nl" data-page="query"><span class="dot" style="background:var(--accent2)"></span>Query Loop</div>
+    <div class="nl" data-page="tools"><span class="dot" style="background:var(--accent)"></span>Tools</div>
+    <div class="ns">Infrastructure</div>
+    <div class="nl" data-page="permissions"><span class="dot" style="background:var(--warn)"></span>Permissions</div>
+    <div class="nl" data-page="state"><span class="dot" style="background:var(--accent2)"></span>State &amp; Hooks</div>
+    <div class="nl" data-page="settings"><span class="dot" style="background:var(--accent4)"></span>Settings</div>
+    <div class="nl" data-page="hooks"><span class="dot" style="background:var(--accent3)"></span>Lifecycle Hooks</div>
+    <div class="ns">Integrations</div>
+    <div class="nl" data-page="mcp"><span class="dot" style="background:var(--accent)"></span>MCP Protocol</div>
+    <div class="nl" data-page="plugins"><span class="dot" style="background:var(--accent4)"></span>Plugins &amp; Skills</div>
+    <div class="nl" data-page="agents"><span class="dot" style="background:var(--accent2)"></span>Agents &amp; Tasks</div>
+    <div class="ns">Platform</div>
+    <div class="nl" data-page="components"><span class="dot" style="background:var(--accent3)"></span>UI Components</div>
+    <div class="nl" data-page="services"><span class="dot" style="background:var(--muted)"></span>Services</div>
+    <div class="nl" data-page="pm-guide"><span class="dot" style="background:var(--accent)"></span>PM Guide &amp; Token Tips</div>
+    <div class="nl" data-page="code-structure"><span class="dot" style="background:var(--accent2)"></span>Code Structure Reference</div>
+  </div>
+</nav>
+
+<!-- CONTENT -->
+<main id="content">
+
+<!-- OVERVIEW -->
+<section class="page active" id="page-overview">
+  <div class="ph">
+    <div class="pt">Start Here</div>
+    <div class="pp">Claude Code Architecture</div>
+    <div class="pd">A product manager's guide to how Claude Code is built — what lives where, how the pieces connect, and why.</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="sn">25+</div><div class="sl">Built-in Tools</div></div>
+    <div class="stat"><div class="sn">4</div><div class="sl">Settings Layers</div></div>
+    <div class="stat"><div class="sn">6</div><div class="sl">Permission Modes</div></div>
+    <div class="stat"><div class="sn">∞</div><div class="sl">MCP Extensions</div></div>
+  </div>
+  <h2>Click a subsystem to explore</h2>
+  <div class="og">
+    <div class="oc g" data-page="startup"><div class="oi">⚡</div><div class="ott">Startup &amp; REPL</div><div class="of">main.tsx · query.ts</div><div class="od">How Claude Code boots, parses args, and enters the conversation loop.</div><div class="oa">→</div></div>
+    <div class="oc b" data-page="query"><div class="oi">🔄</div><div class="ott">Query Loop</div><div class="of">query.ts · QueryEngine.ts</div><div class="od">The core message→API→tool→repeat cycle that powers every response.</div><div class="oa">→</div></div>
+    <div class="oc g" data-page="tools"><div class="oi">🔧</div><div class="ott">Tools</div><div class="of">tools/ · Tool.ts</div><div class="od">25+ tools the model can call: file ops, bash, web, agents, and more.</div><div class="oa">→</div></div>
+    <div class="oc y" data-page="permissions"><div class="oi">🔐</div><div class="ott">Permissions</div><div class="of">types/permissions.ts</div><div class="od">Multi-level permission system controlling what the model can do.</div><div class="oa">→</div></div>
+    <div class="oc b" data-page="state"><div class="oi">🧠</div><div class="ott">State</div><div class="of">state/ · hooks/</div><div class="od">Zustand-like store + React hooks managing all runtime state.</div><div class="oa">→</div></div>
+    <div class="oc p" data-page="settings"><div class="oi">⚙️</div><div class="ott">Settings</div><div class="of">settings.json × 4 layers</div><div class="od">4-layer cascading settings: user → project → local → policy.</div><div class="oa">→</div></div>
+    <div class="oc o" data-page="hooks"><div class="oi">🪝</div><div class="ott">Lifecycle Hooks</div><div class="of">hooks config in settings</div><div class="od">Shell/LLM/agent hooks firing at PreToolUse, PostToolUse, Stop…</div><div class="oa">→</div></div>
+    <div class="oc g" data-page="mcp"><div class="oi">🔌</div><div class="ott">MCP Protocol</div><div class="of">services/mcp/</div><div class="od">External tool servers connected via Model Context Protocol.</div><div class="oa">→</div></div>
+    <div class="oc p" data-page="plugins"><div class="oi">🧩</div><div class="ott">Plugins &amp; Skills</div><div class="of">plugins/ · skills/</div><div class="od">Marketplace extensions; skills are /slash-command prompts.</div><div class="oa">→</div></div>
+    <div class="oc b" data-page="agents"><div class="oi">🤖</div><div class="ott">Agents &amp; Tasks</div><div class="of">Task.ts · AgentTool</div><div class="od">Sub-agents, async task tracking, swarm/teams multi-agent mode.</div><div class="oa">→</div></div>
+    <div class="oc o" data-page="components"><div class="oi">🖥️</div><div class="ott">UI Components</div><div class="of">components/ (Ink/React)</div><div class="od">Terminal UI in React+Ink. App→REPL→Messages→PromptInput.</div><div class="oa">→</div></div>
+    <div class="oc g" data-page="pm-guide"><div class="oi">💡</div><div class="ott">PM Guide &amp; Token Tips</div><div class="of">for product managers</div><div class="od">How PMs use Claude Code effectively and control token cost.</div><div class="oa">→</div></div>
+  </div>
+  <h2>Entry point</h2>
+  <div class="callout info"><div class="ct2">main.tsx → QueryEngine → query.ts → Anthropic API</div>Every interaction traces this path. Understanding it unlocks everything else.</div>
+  <div class="flow">
+    <div class="fr"><div class="fb g">main.tsx</div><div class="fa">→</div><div class="fb">parse CLI args</div><div class="fa">→</div><div class="fb">startup tasks</div><div class="fa">→</div><div class="fb b">REPL / headless</div></div>
+    <div class="fd">↓</div>
+    <div class="fr"><div class="fb b">QueryEngine.ts</div><div class="fa">→</div><div class="fb">session state</div><div class="fa">→</div><div class="fb g">query.ts</div><div class="fa">→</div><div class="fb o">Anthropic API</div></div>
+    <div class="fd">↓</div>
+    <div class="fr"><div class="fb o">tool call</div><div class="fa">→</div><div class="fb">permission check</div><div class="fa">→</div><div class="fb">execute</div><div class="fa">→</div><div class="fb g">feed result back</div></div>
+  </div>
+</section>
+
+<!-- DATA FLOW -->
+<section class="page" id="page-data-flow">
+  <div class="ph"><div class="pt">Architecture</div><div class="pp">Data Flow</div><div class="pd">How information moves through Claude Code — from user input to model response to tool execution and back.</div></div>
+  <h2>Primary conversation loop</h2>
+  <div class="tl">
+    <div class="ti on"><div class="tl-tag">Step 1</div><div class="tl-t">User types message</div><div class="tl-d">PromptInput captures keystrokes. On submit, message enters AppStateStore.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 2</div><div class="tl-t">QueryEngine.runQuery()</div><div class="tl-d">Wraps message with system prompt (from context.ts), file history, conversation history.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 3</div><div class="tl-t">query.ts → Anthropic API</div><div class="tl-d">Streaming call to the configured model. Tokens stream back in real-time.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 4</div><div class="tl-t">Tool call intercepted</div><div class="tl-d">If model outputs a tool_use block, query.ts pauses the stream and invokes the tool.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 5</div><div class="tl-t">Permission check</div><div class="tl-d">tool.checkPermissions() fires → allow / deny / ask. If ask: dialog shown to user.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 6</div><div class="tl-t">Tool executes</div><div class="tl-d">Bash runs command, FileEditTool patches file, AgentTool launches sub-QueryEngine, etc.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 7</div><div class="tl-t">Result fed back</div><div class="tl-d">tool_result block appended to conversation. Loop returns to Step 3 until no more tool calls.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 8</div><div class="tl-t">Response displayed</div><div class="tl-d">Messages.tsx renders final text. Conversation saved to session transcript.</div></div>
+  </div>
+  <h2>Settings change flow</h2>
+  <div class="flow">
+    <div class="fr"><div class="fb g">settings.json edited</div><div class="fa">→</div><div class="fb">settingsSync watcher</div><div class="fa">→</div><div class="fb b">useSettingsChange hook</div></div>
+    <div class="fd">↓</div>
+    <div class="fr"><div class="fb b">applySettingsChange()</div><div class="fa">→</div><div class="fb">AppStateStore update</div><div class="fa">→</div><div class="fb o">components re-render</div></div>
+  </div>
+  <h2>MCP tool call flow</h2>
+  <div class="flow">
+    <div class="fr"><div class="fb o">model calls MCP tool</div><div class="fa">→</div><div class="fb">MCPTool.execute()</div><div class="fa">→</div><div class="fb">MCPConnectionManager</div></div>
+    <div class="fd">↓</div>
+    <div class="fr"><div class="fb">external MCP server</div><div class="fa">→</div><div class="fb b">result returned</div><div class="fa">→</div><div class="fb g">fed back to model</div></div>
+  </div>
+  <h2>Hook execution flow</h2>
+  <div class="flow">
+    <div class="fr"><div class="fb g">tool about to run</div><div class="fa">→</div><div class="fb p">PreToolUse hooks fire</div></div>
+    <div class="fd">↓ (if not blocked)</div>
+    <div class="fr"><div class="fb b">tool executes</div><div class="fa">→</div><div class="fb o">PostToolUse hooks fire</div></div>
+  </div>
+  <div class="callout warn"><div class="ct2">Context window management</div>When token count approaches the model limit, <code>services/compact/</code> auto-summarizes old messages. Transparent to the user but can affect quality on very long sessions.</div>
+</section>
+
+<!-- TECH STACK -->
+<section class="page" id="page-tech-stack">
+  <div class="ph"><div class="pt">Platform</div><div class="pp">Tech Stack</div><div class="pd">The runtime, language, and libraries that power Claude Code.</div></div>
+  <div class="cards">
+    <div class="card"><div class="ci">🐰</div><div class="ct">Bun</div><div class="cd">Runtime and package manager. Fast startup, native TypeScript support, bundler built-in.</div><span class="badge bg">Runtime</span></div>
+    <div class="card"><div class="ci">⚛️</div><div class="ct">React + Ink</div><div class="cd">React components rendered to the terminal via Ink. Same mental model as web React but outputs ANSI.</div><span class="badge bb">UI</span></div>
+    <div class="card"><div class="ci">🔷</div><div class="ct">TypeScript</div><div class="cd">Full codebase in TypeScript. Strong typing throughout including tool interfaces and API types.</div><span class="badge bp">Language</span></div>
+    <div class="card"><div class="ci">🤖</div><div class="ct">Anthropic SDK</div><div class="cd"><code>@anthropic-ai/sdk</code> — official client with streaming and tool use support.</div><span class="badge bo">API</span></div>
+    <div class="card"><div class="ci">🗃️</div><div class="ct">Custom Zustand Store</div><div class="cd">Zustand-like state management in <code>state/</code>. Reactive, selector-based, no external dep.</div><span class="badge bg">State</span></div>
+    <div class="card"><div class="ci">🚩</div><div class="ct">GrowthBook</div><div class="cd">Feature flags via GrowthBook. Bun's bundler dead-code-eliminates feature-flagged code at build time.</div><span class="badge by">Flags</span></div>
+  </div>
+  <h2>Directory structure</h2>
+  <pre><code>claude-src/
+├── main.tsx           # CLI entrypoint
+├── query.ts           # Core API loop
+├── QueryEngine.ts     # High-level conversation wrapper
+├── Tool.ts            # Base Tool interface
+├── tools.ts           # Tool registry (all tools imported here)
+├── Task.ts            # Task type definitions
+├── context.ts         # System prompt construction
+├── commands.ts        # Slash command registry
+├── tools/             # Tool implementations (one folder each)
+├── components/        # React/Ink UI components
+├── state/             # AppStateStore + selectors
+├── hooks/             # React hooks
+├── services/          # API, MCP, compact, analytics, etc.
+├── plugins/           # Plugin loader
+├── skills/            # Built-in skill definitions
+└── types/             # Shared TypeScript types</code></pre>
+  <div class="callout tip"><div class="ct2">Why Bun over Node?</div>Startup time is critical for a CLI tool. Bun's sub-50ms cold start vs Node's 200ms+ is a meaningful UX win. Built-in TypeScript support also removes a build step.</div>
+</section>
+
+<!-- STARTUP -->
+<section class="page" id="page-startup">
+  <div class="ph"><div class="pt">Core Engine</div><div class="pp">Startup &amp; REPL</div><div class="pd">How Claude Code initializes, what happens before the first prompt, and the two execution modes.</div></div>
+  <h2>main.tsx — CLI entrypoint</h2>
+  <p><code>main.tsx</code> is the first file executed. It:</p>
+  <ol>
+    <li>Parses CLI arguments via <strong>Commander.js</strong></li>
+    <li>Runs startup tasks in parallel: MDM policy read, keychain API key prefetch, GrowthBook feature flag init</li>
+    <li>Determines execution mode: <strong>REPL</strong> (interactive) or <strong>headless</strong> (pipe/script)</li>
+    <li>Mounts the React/Ink root or runs the headless loop</li>
+  </ol>
+  <h2>Execution modes</h2>
+  <div class="cards">
+    <div class="card"><div class="ct">REPL Mode</div><div class="cd">Interactive terminal session. React/Ink renders the UI. User types, model responds. Default when run without piped input.</div><span class="badge bg">Interactive</span></div>
+    <div class="card"><div class="ct">Headless Mode</div><div class="cd">Pipe input, scripted automation, SDK usage. No Ink UI. Outputs to stdout/stderr. Used by CI, scripts, the SDK.</div><span class="badge bb">Automation</span></div>
+  </div>
+  <h2>QueryEngine.ts vs query.ts</h2>
+  <table>
+    <thead><tr><th>File</th><th>Role</th><th>Used by</th></tr></thead>
+    <tbody>
+      <tr><td><code>query.ts</code></td><td>Raw API loop — sends messages, handles streaming, tool call interception, auto-compact</td><td>QueryEngine</td></tr>
+      <tr><td><code>QueryEngine.ts</code></td><td>High-level wrapper — manages conversation state, file history snapshots, session storage, plugin loading</td><td>REPL, SDK, AgentTool</td></tr>
+    </tbody>
+  </table>
+  <h2>context.ts — System prompt</h2>
+  <p>Before every turn, <code>context.ts</code> builds the system prompt by reading:</p>
+  <ul>
+    <li>Git status of current repo</li>
+    <li><code>CLAUDE.md</code> files (project root + parent dirs + <code>.claude/</code> subdir)</li>
+    <li>Memory files from <code>~/.claude/projects/…/memory/</code></li>
+    <li>Active tool list, permission mode, current directory</li>
+  </ul>
+  <div class="callout info"><div class="ct2">Product Impact</div>CLAUDE.md files are how teams customize Claude Code per-project — shared instructions, coding standards, tool restrictions. Key enterprise adoption surface.</div>
+</section>
+
+<!-- QUERY -->
+<section class="page" id="page-query">
+  <div class="ph"><div class="pt">Core Engine</div><div class="pp">Query Loop</div><div class="pd">The heart of Claude Code — the message/response/tool cycle that drives every interaction.</div></div>
+  <h2>What query.ts does</h2>
+  <ul>
+    <li><strong>Streaming</strong> — tokens from the Anthropic API stream in real-time, displayed as they arrive</li>
+    <li><strong>Tool call interception</strong> — when the model emits <code>tool_use</code>, stream pauses, tool executes, result fed back</li>
+    <li><strong>Auto-compact</strong> — monitors token count; when context gets too long, old messages are summarized</li>
+    <li><strong>Retry logic</strong> — handles API errors, rate limits, network issues</li>
+  </ul>
+  <h2>The agentic loop</h2>
+  <pre><code>while (true) {
+  const response = await anthropicAPI.stream(messages, tools)
+
+  if (response.hasToolUse) {
+    for (const toolCall of response.toolCalls) {
+      const permission = await tool.checkPermissions(toolCall)
+      if (permission === 'deny') continue
+      if (permission === 'ask') await promptUser()
+
+      const result = await tool.execute(toolCall)
+      messages.push({ role: 'tool', content: result })
+    }
+    continue  // ← loop back, feed results to model
+  }
+
+  break  // ← no more tool calls, done
+}</code></pre>
+  <h2>Auto-compact</h2>
+  <p>When token count approaches limits, <code>services/compact/</code> summarizes old messages:</p>
+  <ul>
+    <li>Triggered automatically in <code>query.ts</code></li>
+    <li>Fires <code>PreCompact</code> and <code>PostCompact</code> lifecycle hooks</li>
+    <li>Summary injected as a system message at the start of truncated history</li>
+    <li>User can also trigger manually with <code>/compact</code></li>
+  </ul>
+  <div class="callout warn"><div class="ct2">Token cost note for PMs</div>Each tool result is a full API round-trip. A task with 10 tool calls = 10 API calls (but streamed in one session). Large file reads dramatically increase token usage.</div>
+</section>
+
+<!-- TOOLS -->
+<section class="page" id="page-tools">
+  <div class="ph"><div class="pt">Core Engine</div><div class="pp">Tools</div><div class="pd">All 25+ tools the model can call. Each is a folder in <code>tools/</code> implementing the <code>Tool</code> interface.</div></div>
+  <h2>Tool interface</h2>
+  <pre><code>interface Tool {
+  name: string
+  description: string        // shown to the model
+  inputSchema: JSONSchema    // validates model input
+  checkPermissions(input): Permission
+  execute(input, context): Promise&lt;ToolResult&gt;
+}</code></pre>
+  <h3>File operations</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>What it does</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>FileReadTool</code></td><td>Read files</td><td>Respects .gitignore, supports PDF/images/notebooks</td></tr>
+      <tr><td><code>FileEditTool</code></td><td>Edit files with string replacement</td><td>Requires exact match; fails if string not unique</td></tr>
+      <tr><td><code>FileWriteTool</code></td><td>Write/create files</td><td>Must read first; overwrites entire file</td></tr>
+      <tr><td><code>GlobTool</code></td><td>Find files by pattern</td><td>Returns paths sorted by modification time</td></tr>
+      <tr><td><code>GrepTool</code></td><td>Search file contents (ripgrep)</td><td>Full regex, file type filter, context lines</td></tr>
+      <tr><td><code>NotebookEditTool</code></td><td>Edit Jupyter notebooks</td><td>Handles .ipynb cell structure</td></tr>
+    </tbody>
+  </table>
+  <h3>Execution</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>What it does</th><th>Permission notes</th></tr></thead>
+    <tbody>
+      <tr><td><code>BashTool</code></td><td>Run shell commands</td><td>Most scrutinized; deny rules, prefix matching</td></tr>
+      <tr><td><code>WebFetchTool</code></td><td>Fetch web pages</td><td>Returns text/markdown version</td></tr>
+      <tr><td><code>WebSearchTool</code></td><td>Search the web</td><td>Returns search result snippets</td></tr>
+    </tbody>
+  </table>
+  <h3>Agent &amp; task management</h3>
+  <table>
+    <thead><tr><th>Tool</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>AgentTool</code></td><td>Launch sub-agents (separate QueryEngine instances)</td></tr>
+      <tr><td><code>TaskCreate/Get/List/Update/Stop/Output</code></td><td>Async task tracking system</td></tr>
+      <tr><td><code>SendMessageTool</code></td><td>Send messages to teammate agents in swarm mode</td></tr>
+      <tr><td><code>ScheduleCronTool</code></td><td>Schedule recurring tasks</td></tr>
+      <tr><td><code>AskUserQuestionTool</code></td><td>Pause and ask user a question mid-task</td></tr>
+      <tr><td><code>EnterPlanMode / ExitPlanMode</code></td><td>Switch to read-only planning mode</td></tr>
+      <tr><td><code>EnterWorktree / ExitWorktree</code></td><td>Git worktree isolation for risky tasks</td></tr>
+      <tr><td><code>SkillTool</code></td><td>Execute skills (slash command expansion)</td></tr>
+      <tr><td><code>MCPTool</code></td><td>Proxy to external MCP servers</td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip"><div class="ct2">PM Insight</div>The tool list is what the model sees as its "hands." Adding MCP tools or restricting built-in tools directly changes model capability — the main customization surface for enterprise deployments.</div>
+</section>
+
+<!-- PERMISSIONS -->
+<section class="page" id="page-permissions">
+  <div class="ph"><div class="pt">Infrastructure</div><div class="pp">Permissions System</div><div class="pd">The multi-layered system that controls what Claude Code is allowed to do — from full autonomy to strict read-only.</div></div>
+  <h2>Permission modes</h2>
+  <div class="pg">
+    <div class="pc hd">Mode</div><div class="pc hd">Behavior</div><div class="pc hd">Risk</div>
+    <div class="pc"><div class="pm">default</div></div><div class="pc"><div class="pdesc">Prompts for dangerous operations (Bash, writes outside project)</div></div><div class="pc"><span class="badge bg">Low</span></div>
+    <div class="pc"><div class="pm">acceptEdits</div></div><div class="pc"><div class="pdesc">Auto-accepts file edits, still prompts for Bash</div></div><div class="pc"><span class="badge by">Medium</span></div>
+    <div class="pc"><div class="pm">bypassPermissions</div></div><div class="pc"><div class="pdesc">Allow everything — no prompts. Used in trusted automation.</div></div><div class="pc"><span class="badge bo">High</span></div>
+    <div class="pc"><div class="pm">dontAsk</div></div><div class="pc"><div class="pdesc">Respects allow/deny rules but no interactive dialogs</div></div><div class="pc"><span class="badge by">Medium</span></div>
+    <div class="pc"><div class="pm">plan</div></div><div class="pc"><div class="pdesc">Read-only planning mode — model can read but not write or execute</div></div><div class="pc"><span class="badge bg">Minimal</span></div>
+    <div class="pc"><div class="pm">auto</div></div><div class="pc"><div class="pdesc">LLM classifier (YoloClassifier) decides allow/deny. Feature-flagged.</div></div><div class="pc"><span class="badge bp">Variable</span></div>
+  </div>
+  <h2>Rule sources (precedence order — higher overrides lower)</h2>
+  <table>
+    <thead><tr><th>#</th><th>Source</th><th>Location</th></tr></thead>
+    <tbody>
+      <tr><td>1 (highest)</td><td>policySettings</td><td>MDM/enterprise managed — can't be overridden</td></tr>
+      <tr><td>2</td><td>cliArg</td><td>CLI flags at launch</td></tr>
+      <tr><td>3</td><td>session</td><td>Runtime decisions ("always allow" during session)</td></tr>
+      <tr><td>4</td><td>localSettings</td><td><code>.claude/settings.local.json</code> (gitignored)</td></tr>
+      <tr><td>5</td><td>projectSettings</td><td><code>.claude/settings.json</code> (committed)</td></tr>
+      <tr><td>6 (lowest)</td><td>userSettings</td><td><code>~/.claude/settings.json</code> (global)</td></tr>
+    </tbody>
+  </table>
+  <h2>Rule syntax</h2>
+  <pre><code>{
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",          // all git subcommands
+      "Bash(npm run test)",   // exact command
+      "Read",                 // all Read operations
+      "Edit(.claude)"         // files in .claude/
+    ],
+    "deny": ["Bash(rm -rf:*)"],
+    "defaultMode": "acceptEdits"
+  }
+}</code></pre>
+  <div class="callout info"><div class="ct2">Enterprise surface</div>MDM policy settings take highest precedence and cannot be overridden by users or project config. This is how enterprise IT enforces Claude Code restrictions fleet-wide.</div>
+</section>
+
+<!-- STATE -->
+<section class="page" id="page-state">
+  <div class="ph"><div class="pt">Infrastructure</div><div class="pp">State &amp; React Hooks</div><div class="pd">How runtime state is managed — AppStateStore, React context, and key hooks.</div></div>
+  <h2>AppStateStore.ts</h2>
+  <p>Custom Zustand-like store at <code>state/AppStateStore.ts</code>. Holds all runtime state:</p>
+  <ul>
+    <li><strong>messages</strong> — current conversation messages</li>
+    <li><strong>permission context</strong> — current mode, session decisions</li>
+    <li><strong>tool state</strong> — in-progress tool calls, results</li>
+    <li><strong>tasks</strong> — active async task list</li>
+    <li><strong>session info</strong> — session ID, model, config</li>
+  </ul>
+  <h2>Key React hooks</h2>
+  <table>
+    <thead><tr><th>Hook</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>useCanUseTool</code></td><td>Permission check — returns whether a tool can be used right now</td></tr>
+      <tr><td><code>useSettings / useSettingsChange</code></td><td>Read settings + react to settings file changes</td></tr>
+      <tr><td><code>useTasksV2</code></td><td>Task management — create, update, poll task state</td></tr>
+      <tr><td><code>useMainLoopModel</code></td><td>Get/set the active model (sonnet/opus/haiku)</td></tr>
+      <tr><td><code>useMergedTools</code></td><td>Combines built-in + MCP + plugin tools into one list</td></tr>
+      <tr><td><code>useMergedCommands</code></td><td>Combines built-in slash commands + plugin commands</td></tr>
+      <tr><td><code>useVoice</code></td><td>Voice STT input integration</td></tr>
+      <tr><td><code>toolPermission/</code></td><td>Permission dialog hooks — show/hide prompts, record decisions</td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip"><div class="ct2">Architecture note</div>The split between <code>state/</code> (plain store) and <code>hooks/</code> (React bindings) is deliberate — the store can be used headlessly (SDK, tests) without React.</div>
+</section>
+
+<!-- SETTINGS -->
+<section class="page" id="page-settings">
+  <div class="ph"><div class="pt">Infrastructure</div><div class="pp">Settings System</div><div class="pd">The 4-layer cascading settings system — how configuration is loaded, merged, and applied.</div></div>
+  <h2>4 layers, in override order</h2>
+  <div class="tl">
+    <div class="ti"><div class="tl-tag">Layer 1 (lowest)</div><div class="tl-t">User settings</div><div class="tl-d"><code>~/.claude/settings.json</code> — global preferences, applies to all projects</div></div>
+    <div class="ti"><div class="tl-tag">Layer 2</div><div class="tl-t">Project settings</div><div class="tl-d"><code>.claude/settings.json</code> — committed to repo, team-shared. Overrides user settings.</div></div>
+    <div class="ti"><div class="tl-tag">Layer 3</div><div class="tl-t">Local settings</div><div class="tl-d"><code>.claude/settings.local.json</code> — gitignored personal overrides for this project</div></div>
+    <div class="ti on"><div class="tl-tag">Layer 4 (highest)</div><div class="tl-t">Policy/managed settings</div><div class="tl-d">MDM enterprise policy — cannot be overridden by any user or project config</div></div>
+  </div>
+  <h2>Key settings</h2>
+  <table>
+    <thead><tr><th>Setting</th><th>What it controls</th></tr></thead>
+    <tbody>
+      <tr><td><code>permissions</code></td><td>allow/deny/ask rules, defaultMode, additionalDirectories</td></tr>
+      <tr><td><code>hooks</code></td><td>Lifecycle hooks by event name</td></tr>
+      <tr><td><code>model</code></td><td>Default model (e.g., <code>"opus"</code>, <code>"sonnet"</code>)</td></tr>
+      <tr><td><code>env</code></td><td>Environment variables injected into every session</td></tr>
+      <tr><td><code>enabledPlugins</code></td><td>Plugin enable/disable map</td></tr>
+      <tr><td><code>cleanupPeriodDays</code></td><td>Transcript retention (0 = disable entirely)</td></tr>
+      <tr><td><code>attribution</code></td><td>Custom commit/PR attribution text</td></tr>
+      <tr><td><code>language</code></td><td>Preferred response language</td></tr>
+    </tbody>
+  </table>
+  <div class="callout info"><div class="ct2">CLAUDE.md vs settings.json</div><strong>CLAUDE.md</strong> = natural language instructions in the system prompt (how to write code, project conventions).<br><strong>settings.json</strong> = machine-readable config for permissions, hooks, model, plugins. Both live in <code>.claude/</code> and can be committed.</div>
+</section>
+
+<!-- HOOKS -->
+<section class="page" id="page-hooks">
+  <div class="ph"><div class="pt">Infrastructure</div><div class="pp">Lifecycle Hooks</div><div class="pd">Shell commands or LLM prompts that fire automatically at specific points in Claude Code's execution.</div></div>
+  <div class="callout warn"><div class="ct2">Hooks config ≠ React hooks</div>"Hooks" here means configuration in <code>settings.json</code> that runs shell commands at events — not React hooks in <code>hooks/</code>.</div>
+  <h2>Hook events</h2>
+  <table>
+    <thead><tr><th>Event</th><th>When it fires</th><th>Can block?</th></tr></thead>
+    <tbody>
+      <tr><td><code>PreToolUse</code></td><td>Before a tool executes</td><td>Yes — <code>{"continue": false}</code></td></tr>
+      <tr><td><code>PostToolUse</code></td><td>After a tool successfully executes</td><td>Yes</td></tr>
+      <tr><td><code>PermissionRequest</code></td><td>When permission is being evaluated</td><td>Yes — can override decision</td></tr>
+      <tr><td><code>PreCompact</code></td><td>Before context compaction</td><td>Yes</td></tr>
+      <tr><td><code>PostCompact</code></td><td>After compaction (receives summary)</td><td>No</td></tr>
+      <tr><td><code>Stop</code></td><td>When Claude finishes a response</td><td>Yes</td></tr>
+      <tr><td><code>SessionStart</code></td><td>When a session begins</td><td>No</td></tr>
+      <tr><td><code>UserPromptSubmit</code></td><td>When user submits a message</td><td>Yes</td></tr>
+    </tbody>
+  </table>
+  <h2>Hook types</h2>
+  <div class="cards">
+    <div class="card"><div class="ct">command</div><div class="cd">Runs a shell command. Receives JSON on stdin. Can output JSON to control behavior.</div><span class="badge bg">Most common</span></div>
+    <div class="card"><div class="ct">prompt</div><div class="cd">Sends a prompt to an LLM to evaluate the situation. Good for nuanced policy enforcement.</div><span class="badge bb">Tool events only</span></div>
+    <div class="card"><div class="ct">agent</div><div class="cd">Runs a full agent (with tools) to evaluate or react. Heavyweight but powerful.</div><span class="badge bp">Tool events only</span></div>
+    <div class="card"><div class="ct">http</div><div class="cd">HTTP POST to a URL. Good for external integrations, logging, alerting.</div><span class="badge bo">Webhook</span></div>
+  </div>
+  <h2>Example: auto-format on write</h2>
+  <pre><code>{
+  "hooks": {
+    "PostToolUse": [{
+      "matcher": "Write|Edit",
+      "hooks": [{
+        "type": "command",
+        "command": "jq -r '.tool_input.file_path' | { read -r f; prettier --write \"$f\"; } 2>/dev/null || true"
+      }]
+    }]
+  }
+}</code></pre>
+  <div class="callout tip"><div class="ct2">Use cases for hooks</div>Auto-formatting, logging bash commands, blocking dangerous patterns, running tests after code changes, notifying Slack on session end, enforcing commit message standards.</div>
+</section>
+
+<!-- MCP -->
+<section class="page" id="page-mcp">
+  <div class="ph"><div class="pt">Integrations</div><div class="pp">MCP Protocol</div><div class="pd">Model Context Protocol — the open standard for connecting external tool servers to Claude Code.</div></div>
+  <h2>What MCP is</h2>
+  <p>MCP (Model Context Protocol) is an open standard that lets external servers expose tools to Claude Code. Claude Code acts as the MCP <strong>client</strong>; external services act as MCP <strong>servers</strong>.</p>
+  <p>Examples: a database query server, a Jira integration, a custom internal API — all appear in Claude Code as regular tools the model can call.</p>
+  <h2>Transport types</h2>
+  <div class="cards">
+    <div class="card"><div class="ct">stdio (subprocess)</div><div class="cd">Most common. Claude Code spawns the server as a child process and communicates over stdin/stdout.</div><span class="badge bg">Default</span></div>
+    <div class="card"><div class="ct">HTTP/SSE</div><div class="cd">Server runs independently. Claude Code connects over HTTP with Server-Sent Events for streaming.</div><span class="badge bb">Remote</span></div>
+    <div class="card"><div class="ct">In-process</div><div class="cd">SDK transport — server runs inside the same process. Used by plugins and SDK users.</div><span class="badge bp">SDK</span></div>
+  </div>
+  <h2>Configuring MCP servers</h2>
+  <pre><code>// .claude/settings.json
+{
+  "mcpServers": {
+    "my-db-tool": {
+      "command": "node",
+      "args": ["./db-mcp-server.js"],
+      "env": { "DB_URL": "postgres://..." }
+    }
+  }
+}</code></pre>
+  <div class="callout info"><div class="ct2">PM Insight — MCP as extensibility primitive</div>MCP is the key extensibility mechanism for enterprise. Teams can build internal tool servers (Jira, databases, proprietary APIs) and expose them to Claude Code without any changes to Claude Code itself. This is how Claude Code becomes a platform.</div>
+</section>
+
+<!-- PLUGINS -->
+<section class="page" id="page-plugins">
+  <div class="ph"><div class="pt">Integrations</div><div class="pp">Plugins &amp; Skills</div><div class="pd">The marketplace-distributed extension system and the skill (slash command) mechanism.</div></div>
+  <h2>What plugins can add</h2>
+  <div class="cards">
+    <div class="card"><div class="ci">🔌</div><div class="ct">MCP Servers</div><div class="cd">Bundle MCP tool servers that activate when the plugin is enabled.</div></div>
+    <div class="card"><div class="ci">⚡</div><div class="ct">Skills</div><div class="cd">Custom slash commands (<code>/my-workflow</code>) that expand into full prompts.</div></div>
+    <div class="card"><div class="ci">🤖</div><div class="ct">Agents</div><div class="cd">Custom agent types with specific tools and system prompts.</div></div>
+    <div class="card"><div class="ci">🪝</div><div class="ct">Hooks</div><div class="cd">Lifecycle hooks injected as part of the plugin.</div></div>
+    <div class="card"><div class="ci">⚙️</div><div class="ct">Configuration</div><div class="cd">Default settings, permissions, environment variables.</div></div>
+  </div>
+  <h2>Plugin marketplaces</h2>
+  <table>
+    <thead><tr><th>Source</th><th>Identifier</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Anthropic Official</td><td><code>claude-plugins-official</code></td><td>Curated by Anthropic team</td></tr>
+      <tr><td>GitHub</td><td>Any public GitHub repo</td><td>Add via <code>extraKnownMarketplaces</code></td></tr>
+      <tr><td>npm</td><td>npm package name</td><td>Published as npm packages</td></tr>
+      <tr><td>Local</td><td>Local file path</td><td>For development/private use</td></tr>
+    </tbody>
+  </table>
+  <h2>Skills — slash command prompts</h2>
+  <p>Skills are Markdown files that expand into full prompts when invoked via <code>/skill-name</code>.</p>
+  <p>Built-in skills include: <code>/commit</code>, <code>/review-pr</code>, <code>/update-config</code>, and many more. Skills in plugins can be distributed across a whole org.</p>
+  <div class="callout tip"><div class="ct2">PM Insight</div>Skills let teams encode their workflows as reusable slash commands. A <code>/deploy-feature</code> skill could run tests, create a PR, notify Slack, and update Jira — in one command.</div>
+</section>
+
+<!-- AGENTS -->
+<section class="page" id="page-agents">
+  <div class="ph"><div class="pt">Integrations</div><div class="pp">Agents &amp; Tasks</div><div class="pd">Sub-agents, async task tracking, and multi-agent swarm/teams mode.</div></div>
+  <h2>AgentTool — sub-agents</h2>
+  <p>The <code>AgentTool</code> launches a new <code>QueryEngine</code> instance as a sub-agent. Sub-agents:</p>
+  <ul>
+    <li>Have their own conversation context (don't see parent's messages)</li>
+    <li>Can be given a subset of tools (e.g., read-only tools for research)</li>
+    <li>Run to completion and return a single result to the parent</li>
+    <li>Can be run in parallel with other sub-agents</li>
+    <li>Optionally use <code>isolation: "worktree"</code> for Git worktree isolation</li>
+  </ul>
+  <h2>Task types</h2>
+  <table>
+    <thead><tr><th>Type</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td><code>local_bash</code></td><td>A background shell command tracked as a task</td></tr>
+      <tr><td><code>local_agent</code></td><td>A sub-agent running in the same process</td></tr>
+      <tr><td><code>remote_agent</code></td><td>An agent running on a remote machine/service</td></tr>
+      <tr><td><code>in_process_teammate</code></td><td>A teammate agent in swarm/teams mode</td></tr>
+      <tr><td><code>local_workflow</code></td><td>A multi-step workflow running locally</td></tr>
+      <tr><td><code>dream</code></td><td>Background memory consolidation (autoDream)</td></tr>
+    </tbody>
+  </table>
+  <h2>Swarm / Teams mode</h2>
+  <p>Multi-agent collaboration where a <strong>coordinator</strong> orchestrates multiple <strong>teammate</strong> agents:</p>
+  <ul>
+    <li>Coordinator assigns work, collects results, synthesizes output</li>
+    <li>Teammates run in parallel on different subtasks</li>
+    <li><code>SendMessageTool</code> — send messages between agents</li>
+    <li><code>RemoteTriggerTool</code> — trigger remote agent workflows</li>
+  </ul>
+  <div class="callout info"><div class="ct2">PM Insight</div>AgentTool is the mechanism behind Explore, Plan, and other specialized agents. Sub-agents let the model "parallelize" work — multiple independent research tasks running simultaneously, each with a fresh context window.</div>
+</section>
+
+<!-- COMPONENTS -->
+<section class="page" id="page-components">
+  <div class="ph"><div class="pt">Platform</div><div class="pp">UI Components</div><div class="pd">React components rendered to the terminal via Ink. The visual layer of Claude Code's REPL.</div></div>
+  <h2>Component tree</h2>
+  <pre><code>App.tsx                      ← root, providers, global shortcuts
+└── REPL.tsx                 ← main REPL screen
+    ├── Messages.tsx          ← conversation history
+    │   └── Message.tsx       ← single message (text + tool calls)
+    │       ├── diff/         ← file diff display
+    │       └── StructuredDiff/
+    ├── PromptInput/          ← user input + autocomplete
+    ├── tasks/                ← task list sidebar
+    ├── permissions/          ← permission prompt dialogs
+    ├── mcp/                  ← MCP server management
+    └── Settings/             ← settings UI (⌘,)</code></pre>
+  <h2>Key components</h2>
+  <table>
+    <thead><tr><th>Component</th><th>What it renders</th></tr></thead>
+    <tbody>
+      <tr><td><code>App.tsx</code></td><td>Root — React context providers, global key handlers, conditional screens</td></tr>
+      <tr><td><code>REPL.tsx</code></td><td>Main screen layout — assembles Messages + PromptInput + sidebars</td></tr>
+      <tr><td><code>Messages.tsx</code></td><td>Scrollable message list — maps over conversation state</td></tr>
+      <tr><td><code>Message.tsx</code></td><td>Single turn — renders assistant text, tool calls, tool results</td></tr>
+      <tr><td><code>PromptInput/</code></td><td>Multi-line text input with @ mention and slash command autocomplete</td></tr>
+      <tr><td><code>diff/</code></td><td>File diff view for Edit/Write tool outputs</td></tr>
+      <tr><td><code>permissions/</code></td><td>Allow/deny/ask dialogs for permission prompts</td></tr>
+    </tbody>
+  </table>
+  <div class="callout tip"><div class="ct2">Why Ink?</div>Ink lets the team use familiar React patterns without learning a terminal-specific framework. The trade-off is that Ink's layout model is more limited than web CSS — no DOM, no scroll, no events.</div>
+</section>
+
+<!-- SERVICES -->
+<section class="page" id="page-services">
+  <div class="ph"><div class="pt">Platform</div><div class="pp">Services</div><div class="pd">Background infrastructure services that support the core engine.</div></div>
+  <div class="cards">
+    <div class="card"><div class="ct">api/</div><div class="cd">Anthropic API client wrapper. Handles streaming, retries, token counting, error handling.</div><span class="badge bb">Core</span></div>
+    <div class="card"><div class="ct">mcp/</div><div class="cd">MCP connection management. Connects to external tool servers at startup, routes tool calls.</div><span class="badge bg">Core</span></div>
+    <div class="card"><div class="ct">compact/</div><div class="cd">Auto-compaction. Summarizes old messages when context window approaches limit.</div><span class="badge bo">Context</span></div>
+    <div class="card"><div class="ct">analytics/</div><div class="cd">GrowthBook feature flags + event logging. Controls feature rollouts, A/B tests.</div><span class="badge bp">Platform</span></div>
+    <div class="card"><div class="ct">plugins/</div><div class="cd">Plugin loading and lifecycle management. Fetches from marketplaces, activates plugins.</div><span class="badge bg">Extensions</span></div>
+    <div class="card"><div class="ct">oauth/</div><div class="cd">OAuth flows for Claude.ai and Anthropic Console authentication.</div><span class="badge bb">Auth</span></div>
+    <div class="card"><div class="ct">autoDream/</div><div class="cd">Background memory consolidation. Distills session memory into persistent files.</div><span class="badge bp">Memory</span></div>
+    <div class="card"><div class="ct">lsp/</div><div class="cd">Language Server Protocol integration — enables IDE-like code intelligence.</div><span class="badge bg">IDE</span></div>
+    <div class="card"><div class="ct">settingsSync/</div><div class="cd">File watcher for settings.json. Triggers live reload when settings change.</div><span class="badge bb">Config</span></div>
+    <div class="card"><div class="ct">voice.ts</div><div class="cd">Voice STT (speech-to-text) integration for voice input in PromptInput.</div><span class="badge bo">Input</span></div>
+  </div>
+</section>
+
+<!-- PM GUIDE -->
+<section class="page" id="page-pm-guide">
+  <div class="ph"><div class="pt">For Product Managers</div><div class="pp">PM Guide &amp; Token Tips</div><div class="pd">How to use Claude Code effectively as a PM, and how to control API costs.</div></div>
+  <h2>What Claude Code is good at for PMs</h2>
+  <div class="cards">
+    <div class="card"><div class="ci">🔍</div><div class="ct">Codebase understanding</div><div class="cd">"How does the permissions system work?" → Claude reads the files and explains it. Far faster than asking an engineer.</div></div>
+    <div class="card"><div class="ci">📊</div><div class="ct">Feature impact analysis</div><div class="cd">"Which files would be affected by adding a new permission mode?" → Claude traces code paths and gives scope estimates.</div></div>
+    <div class="card"><div class="ci">📝</div><div class="ct">Spec validation</div><div class="cd">"Does this spec match what the code actually does?" → Claude compares your PRD against the implementation.</div></div>
+    <div class="card"><div class="ci">🗺️</div><div class="ct">Architecture tours</div><div class="cd">"Walk me through the data flow for an MCP tool call" → Claude traces through the code step by step.</div></div>
+    <div class="card"><div class="ci">🐛</div><div class="ct">Bug triage help</div><div class="cd">"What could cause a permission to be silently denied?" → Claude analyzes the system and lists plausible causes.</div></div>
+    <div class="card"><div class="ci">📋</div><div class="ct">Changelog generation</div><div class="cd">"Summarize this sprint's commits in user-facing terms" → Claude reads git log and writes the changelog.</div></div>
+  </div>
+  <h2>Token cost: what drives it</h2>
+  <div class="callout info"><div class="ct2">Tokens = money. Context = tokens.</div>Every API call sends the full conversation history. The longer the session, the more tokens each message costs. Tool results (large file reads) multiply costs fast.</div>
+  <table>
+    <thead><tr><th>Action</th><th>Token cost</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>Reading a small file (50 lines)</td><td>Low (~200 tok)</td><td>Fine</td></tr>
+      <tr><td>Reading a large file (1000+ lines)</td><td>High (~4000 tok)</td><td>Prefer targeted reads</td></tr>
+      <tr><td>Bash command with short output</td><td>Low</td><td>Fine</td></tr>
+      <tr><td>Bash command with verbose logs</td><td>Very high</td><td>Pipe through head/grep</td></tr>
+      <tr><td>Each web fetch</td><td>High (~2000-8000 tok)</td><td>Use sparingly</td></tr>
+      <tr><td>Long conversation (50+ turns)</td><td>Very high baseline</td><td>Use /compact or start fresh</td></tr>
+      <tr><td>Sub-agent launch</td><td>New context window</td><td>Agents don't inherit parent context</td></tr>
+    </tbody>
+  </table>
+  <h2>Token-saving strategies</h2>
+  <h3>1. Use /compact early and often</h3>
+  <p>Type <code>/compact</code> to summarize old conversation into a condensed context. Cuts token count by 60-80% for long sessions. Do this after completing a major subtask.</p>
+  <h3>2. Be specific in your prompts</h3>
+  <pre><code>❌ "How does authentication work?"
+   → Claude reads 10+ files
+
+✅ "How does OAuth config work in services/oauth/ only?"
+   → Claude reads 2-3 targeted files</code></pre>
+  <h3>3. Use Plan mode for exploration</h3>
+  <p>Start with <code>/plan</code> (read-only). Claude can explore without executing — faster, cheaper, safer. Switch to full mode only when ready to make changes.</p>
+  <h3>4. Use sub-agents for parallel research</h3>
+  <p>Sub-agents start fresh context windows. For broad research, having Claude launch parallel sub-agents is cheaper than one long session — each has a clean slate.</p>
+  <h3>5. Use /clear for fresh starts</h3>
+  <p><code>/clear</code> resets the conversation entirely. Use between completely different tasks — don't let one session balloon across 5 different topics.</p>
+  <h2>CLAUDE.md — your most powerful PM tool</h2>
+  <pre><code># CLAUDE.md example
+This is Claude Code, Anthropic's CLI.
+
+## Rules
+- Never run destructive bash commands without confirmation
+- When explaining architecture, include code file references
+- All new features need tests
+
+## Project structure
+- src/tools/ — all tool implementations
+- Entry point is main.tsx, not index.ts</code></pre>
+  <p>A <code>CLAUDE.md</code> at the project root is injected into every conversation's system prompt. Use it to set scope, enforce standards, document conventions, and restrict dangerous behaviors — permanently, without having to repeat instructions every session.</p>
+  <h2>Common PM workflows</h2>
+  <h3>Sprint kickoff</h3>
+  <ol><li>Ask Claude to read the spec/tickets</li><li>"Which files will this change touch? Estimate complexity."</li><li>"Are there edge cases in the current implementation that conflict with this spec?"</li></ol>
+  <h3>Bug investigation</h3>
+  <ol><li>"Reproduce this bug scenario in the code — trace the path."</li><li>"What's the blast radius of fixing it? What else might break?"</li><li>"Write a failing test that demonstrates the bug."</li></ol>
+  <h3>Release preparation</h3>
+  <ol><li>"Summarize all commits since the last tag in user-facing terms."</li><li>"Are there any API-breaking changes?"</li><li>"Generate a changelog entry for the release notes."</li></ol>
+</section>
+
+
+<!-- CODE STRUCTURE -->
+<section class="page" id="page-code-structure">
+  <div class="ph"><div class="pt">Reference</div><div class="pp">Code Structure Reference</div><div class="pd">Every significant file in the codebase — what it does, why it exists, and its role in the overall system. Built for PMs who want to understand the technical landscape without reading the code itself.</div></div>
+
+  <div class="callout tip"><div class="ct2">How to use this page</div>Use the filter buttons to zoom in on a subsystem. Click any file row to expand its full role description. Files marked <span class="badge bg">Core</span> are the highest-leverage ones to understand first.</div>
+
+  <!-- Filter buttons -->
+  <div id="cs-filters" style="display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 16px;">
+    <button class="csf active" data-filter="all">All files</button>
+    <button class="csf" data-filter="root">Root</button>
+    <button class="csf" data-filter="tools">Tools</button>
+    <button class="csf" data-filter="services">Services</button>
+    <button class="csf" data-filter="components">Components</button>
+    <button class="csf" data-filter="state">State</button>
+    <button class="csf" data-filter="hooks">Hooks</button>
+    <button class="csf" data-filter="commands">Commands</button>
+    <button class="csf" data-filter="utils">Utils</button>
+    <button class="csf" data-filter="entrypoints">Entrypoints</button>
+  </div>
+
+  <style>
+    .csf { background: var(--surface); border: 1px solid var(--border2); border-radius: 20px; padding: 5px 14px; font-size: 12px; font-family: var(--sans); color: var(--muted); cursor: pointer; transition: all .15s; }
+    .csf:hover { color: var(--text); border-color: var(--muted); }
+    .csf.active { background: rgba(0,201,167,.1); border-color: var(--accent); color: var(--accent); }
+    #cs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    #cs-table thead th { text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 8px 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 1; }
+    #cs-table tbody tr { border-bottom: 1px solid var(--border); cursor: pointer; transition: background .1s; }
+    #cs-table tbody tr:hover { background: var(--surface); }
+    #cs-table tbody tr.expanded { background: var(--surface); }
+    #cs-table td { padding: 9px 12px; vertical-align: top; }
+    .cs-file { font-family: var(--mono); font-size: 11.5px; color: var(--accent); font-weight: 500; }
+    .cs-dir { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 1px; }
+    .cs-short { font-size: 12px; color: var(--text); }
+    .cs-expand { display: none; padding: 0 12px 12px; }
+    .cs-expand.open { display: table-row; }
+    .cs-expand td { padding: 0 12px 14px; }
+    .cs-detail { background: var(--surface2); border-radius: 6px; padding: 12px 14px; font-size: 12px; color: var(--muted); line-height: 1.6; border-left: 2px solid var(--border2); }
+    .cs-detail strong { color: var(--text); }
+    .cs-detail .role { margin-top: 8px; font-size: 11px; }
+    .cs-role-label { font-family: var(--mono); font-size: 10px; color: var(--accent4); text-transform: uppercase; letter-spacing: .08em; }
+    .cs-chevron { color: var(--muted); font-size: 11px; transition: transform .15s; }
+    tr.expanded .cs-chevron { transform: rotate(90deg); }
+    .cs-hidden { display: none; }
+  </style>
+
+  <table id="cs-table">
+    <thead>
+      <tr>
+        <th style="width:220px">File</th>
+        <th>What it does</th>
+        <th style="width:90px">Layer</th>
+        <th style="width:24px"></th>
+      </tr>
+    </thead>
+    <tbody id="cs-tbody"></tbody>
+  </table>
+</section>
+
+</main>
+</div>
+
+<!-- SEARCH OVERLAY -->
+<div id="overlay">
+  <div id="sbox">
+    <div id="sinp-wrap">
+      <span style="color:var(--muted)">⌕</span>
+      <input id="sinp" type="text" placeholder="Search pages…" autocomplete="off" spellcheck="false">
+      <button id="sclose">ESC</button>
+    </div>
+    <div id="sres"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var PAGES = [
+    {id:'overview',title:'Overview',tag:'Start Here',desc:'Architecture overview, entry point, data flow, subsystem map'},
+    {id:'data-flow',title:'Data Flow',tag:'Architecture',desc:'Conversation loop, settings change flow, MCP flow, hook execution'},
+    {id:'tech-stack',title:'Tech Stack',tag:'Platform',desc:'Bun, React, Ink, TypeScript, Anthropic SDK, GrowthBook, feature flags'},
+    {id:'startup',title:'Startup & REPL',tag:'Core Engine',desc:'main.tsx, CLI args, QueryEngine vs query.ts, context.ts, system prompt'},
+    {id:'query',title:'Query Loop',tag:'Core Engine',desc:'query.ts, agentic loop, streaming, tool call interception, auto-compact'},
+    {id:'tools',title:'Tools',tag:'Core Engine',desc:'All 25+ tools: file ops, bash, web, agent, task, MCP, skill, notebook, plan mode'},
+    {id:'permissions',title:'Permissions',tag:'Infrastructure',desc:'Permission modes, rule sources, allow/deny/ask syntax, MDM policy'},
+    {id:'state',title:'State & Hooks',tag:'Infrastructure',desc:'AppStateStore, React context, useCanUseTool, useSettings, useTasksV2'},
+    {id:'settings',title:'Settings',tag:'Infrastructure',desc:'4-layer settings, CLAUDE.md, settings.json schema, live reload'},
+    {id:'hooks',title:'Lifecycle Hooks',tag:'Infrastructure',desc:'PreToolUse, PostToolUse, Stop, command/prompt/agent/http hook types'},
+    {id:'mcp',title:'MCP Protocol',tag:'Integrations',desc:'Model Context Protocol, external tool servers, MCPConnectionManager'},
+    {id:'plugins',title:'Plugins & Skills',tag:'Integrations',desc:'Plugin marketplace, MCP servers, skills, slash commands, /commit, /review-pr'},
+    {id:'agents',title:'Agents & Tasks',tag:'Integrations',desc:'Sub-agents, task types, swarm/teams multi-agent mode'},
+    {id:'components',title:'UI Components',tag:'Platform',desc:'App.tsx, REPL.tsx, Messages, PromptInput, diff, permissions dialogs, Ink'},
+    {id:'services',title:'Services',tag:'Platform',desc:'api, mcp, compact, analytics, plugins, oauth, autoDream, lsp, settingsSync, voice'},
+    {id:'pm-guide',title:'PM Guide & Token Tips',tag:'For PMs',desc:'How PMs use Claude Code, token cost strategies, CLAUDE.md, workflows'},
+    {id:'code-structure',title:'Code Structure Reference',tag:'Reference',desc:'Every file in the codebase: what it does, its role, and why it exists — for PMs'}
+  ];
+
+  var srState = {results: PAGES.slice(0,8), idx: -1};
+
+  function showPage(id) {
+    var all = document.querySelectorAll('.page');
+    for (var i = 0; i < all.length; i++) all[i].classList.remove('active');
+    var pg = document.getElementById('page-' + id);
+    if (pg) { pg.classList.add('active'); document.getElementById('content').scrollTop = 0; }
+    var links = document.querySelectorAll('.nl');
+    for (var j = 0; j < links.length; j++) {
+      links[j].classList.toggle('active', links[j].getAttribute('data-page') === id);
+    }
+  }
+
+  function openSearch() {
+    document.getElementById('overlay').classList.add('open');
+    document.getElementById('sinp').value = '';
+    renderResults(PAGES.slice(0,8));
+    srState.results = PAGES.slice(0,8);
+    srState.idx = -1;
+    setTimeout(function(){ document.getElementById('sinp').focus(); }, 50);
+  }
+
+  function closeSearch() {
+    document.getElementById('overlay').classList.remove('open');
+  }
+
+  function renderResults(results) {
+    var el = document.getElementById('sres');
+    if (!results.length) { el.innerHTML = '<div class="sr-empty">No results</div>'; return; }
+    el.innerHTML = results.map(function(p, i) {
+      return '<div class="sri" data-idx="'+i+'" data-page="'+p.id+'">'
+        +'<div class="sri-tag">'+p.tag+'</div>'
+        +'<div class="sri-t">'+p.title+'</div>'
+        +'<div class="sri-d">'+p.desc+'</div>'
+        +'</div>';
+    }).join('');
+  }
+
+  function doSearch(q) {
+    if (!q.trim()) { srState.results = PAGES.slice(0,8); renderResults(srState.results); srState.idx=-1; return; }
+    var lq = q.toLowerCase();
+    srState.results = PAGES.filter(function(p){
+      return p.title.toLowerCase().indexOf(lq)!==-1 || p.desc.toLowerCase().indexOf(lq)!==-1 || p.tag.toLowerCase().indexOf(lq)!==-1;
+    });
+    renderResults(srState.results);
+    srState.idx = -1;
+  }
+
+  function searchKey(e) {
+    var items = document.querySelectorAll('.sri');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      srState.idx = Math.min(srState.idx+1, items.length-1);
+      for (var i=0;i<items.length;i++) items[i].classList.toggle('sel', i===srState.idx);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      srState.idx = Math.max(srState.idx-1, 0);
+      for (var i=0;i<items.length;i++) items[i].classList.toggle('sel', i===srState.idx);
+    } else if (e.key === 'Enter') {
+      var sel = srState.idx >= 0 ? items[srState.idx] : items[0];
+      if (sel) { showPage(sel.getAttribute('data-page')); closeSearch(); }
+    }
+  }
+
+  // Nav links
+  var navLinks = document.querySelectorAll('.nl[data-page]');
+  for (var i=0; i<navLinks.length; i++) {
+    (function(el){ el.addEventListener('click', function(){ showPage(el.getAttribute('data-page')); }); })(navLinks[i]);
+  }
+
+  // Overview grid cells
+  var cells = document.querySelectorAll('.oc[data-page]');
+  for (var i=0; i<cells.length; i++) {
+    (function(el){ el.addEventListener('click', function(){ showPage(el.getAttribute('data-page')); }); })(cells[i]);
+  }
+
+  // Search wiring
+  document.getElementById('search-btn').addEventListener('click', openSearch);
+  document.getElementById('sclose').addEventListener('click', closeSearch);
+  document.getElementById('overlay').addEventListener('click', function(e){ if(e.target===this) closeSearch(); });
+  document.getElementById('sinp').addEventListener('input', function(){ doSearch(this.value); });
+  document.getElementById('sinp').addEventListener('keydown', searchKey);
+  document.getElementById('sres').addEventListener('click', function(e){
+    var item = e.target.closest('[data-page]');
+    if (item) { showPage(item.getAttribute('data-page')); closeSearch(); }
+  });
+  document.addEventListener('keydown', function(e){
+    if ((e.metaKey||e.ctrlKey) && e.key==='k') { e.preventDefault(); openSearch(); }
+    if (e.key==='Escape') closeSearch();
+  });
+
+}());
+
+// ── Code Structure page ──────────────────────────────────────────────
+(function() {
+  var FILES = [
+    // ROOT
+    {file:'main.tsx', dir:'/', filter:'root', layer:'Core', badge:'bg', short:'CLI entry point',
+     detail:'<strong>The very first file that runs.</strong> Parses all CLI flags (model, permission mode, print mode, MCP servers) using Commander.js, runs parallel startup tasks (MDM policy fetch, keychain API key prefetch, GrowthBook feature flags), then decides whether to launch the interactive REPL or headless mode.<br><br><span class="cs-role-label">PM role:</span> If a new CLI flag is added, it lives here. If startup is slow, the parallel tasks here are the suspects. This is also where the two product surfaces (interactive REPL vs SDK/headless) split.'},
+    {file:'query.ts', dir:'/', filter:'root', layer:'Core', badge:'bg', short:'The agentic loop — sends messages to Claude, intercepts tool calls, loops until done',
+     detail:'<strong>The innermost loop of Claude Code.</strong> Sends the full conversation to the Anthropic API with streaming, watches the response for tool_use blocks, pauses streaming to execute tools, appends results, and loops back until the model stops calling tools. Also manages auto-compact triggering when context gets large.<br><br><span class="cs-role-label">PM role:</span> Every "Claude is thinking" moment lives here. Latency, streaming behavior, tool call ordering, and auto-compact all originate here. Key file for understanding response quality trade-offs.'},
+    {file:'QueryEngine.ts', dir:'/', filter:'root', layer:'Core', badge:'bg', short:'High-level conversation manager wrapping query.ts',
+     detail:'<strong>The orchestration layer above query.ts.</strong> Manages conversation state across turns, file history snapshots (so Edit tool can verify what was read), session transcript storage, plugin loading, and tool/command merging. Both the REPL and the SDK use QueryEngine — it\'s the public API for running conversations.<br><br><span class="cs-role-label">PM role:</span> When you hear "session", it\'s a QueryEngine instance. The SDK surface PMs pitch to enterprise automation teams is built on this class.'},
+    {file:'Tool.ts', dir:'/', filter:'root', layer:'Core', badge:'bg', short:'Base interface all tools must implement',
+     detail:'<strong>The contract every tool signs.</strong> Defines the TypeScript interface: name, description (shown to the model), inputSchema (JSON Schema for input validation), checkPermissions(), and execute(). Any new tool must implement this interface to be registered.<br><br><span class="cs-role-label">PM role:</span> Understanding this interface tells you what it costs to add a new tool — description quality matters because the model reads it to decide when to call the tool.'},
+    {file:'tools.ts', dir:'/', filter:'root', layer:'Core', badge:'bg', short:'Tool registry — imports all tools, applies feature flags',
+     detail:'<strong>The master list of what the model can do.</strong> Imports every tool implementation and exports the active set, gated by feature flags (some tools are ant-only, KAIROS-flagged, or experimental). The model only sees tools in this list.<br><br><span class="cs-role-label">PM role:</span> If a tool exists in code but users can\'t call it, check this file. Feature flag rollouts for new tools happen here.'},
+    {file:'Task.ts', dir:'/', filter:'root', layer:'Core', badge:'bg', short:'Type definitions for the async task system',
+     detail:'<strong>Defines what a "task" is.</strong> Types for all task variants: local_bash, local_agent, remote_agent, in_process_teammate, local_workflow, monitor_mcp, dream. Used by the task management tools (TaskCreate/Get/List/etc) and the tasks/ service.<br><br><span class="cs-role-label">PM role:</span> Understand this when discussing background work, parallel agents, or any async operation the model spawns.'},
+    {file:'context.ts', dir:'/', filter:'root', layer:'Core', badge:'bg', short:'Builds the system prompt injected into every conversation',
+     detail:'<strong>What Claude "knows" before you say a word.</strong> Reads CLAUDE.md files (project + parent dirs), memory files, git status, active tools, permission mode, current working directory — assembles it all into the system prompt sent with every API call.<br><br><span class="cs-role-label">PM role:</span> CLAUDE.md is the primary way teams customize Claude behavior. context.ts is what makes CLAUDE.md work. Performance: changes here affect every single API call.'},
+    {file:'commands.ts', dir:'/', filter:'root', layer:'Core', badge:'bb', short:'Slash command registry',
+     detail:'<strong>Maps /commands to their implementations.</strong> Imports all commands from commands/ directory and exports the full list. Merged with plugin commands via useMergedCommands hook.<br><br><span class="cs-role-label">PM role:</span> When designing new /commands, this is where they get registered.'},
+    {file:'cost-tracker.ts', dir:'/', filter:'root', layer:'Infra', badge:'by', short:'Tracks token usage and API cost across a session',
+     detail:'Accumulates input/output token counts and calculates estimated API cost as the session runs. Feeds the cost display in the UI status bar.<br><br><span class="cs-role-label">PM role:</span> Directly tied to cost transparency features. If enterprise customers want cost reporting, this is the data source.'},
+    {file:'costHook.ts', dir:'/', filter:'root', layer:'Infra', badge:'by', short:'React hook for reading live cost from the tracker',
+     detail:'Exposes cost-tracker.ts data to React components via a hook. Powers the live cost display during long sessions.<br><br><span class="cs-role-label">PM role:</span> Part of cost visibility — relevant for any pricing or budget features.'},
+    {file:'history.ts', dir:'/', filter:'root', layer:'Infra', badge:'bb', short:'Manages session transcript read/write to disk',
+     detail:'Handles reading and writing conversation transcripts to ~/.claude/projects/. Controls the cleanupPeriodDays retention policy. Used by session resume and the export command.<br><br><span class="cs-role-label">PM role:</span> Session persistence, resume capability, and the cleanupPeriodDays setting all depend on this file.'},
+    {file:'replLauncher.tsx', dir:'/', filter:'root', layer:'UI', badge:'bp', short:'Mounts the React/Ink root component for interactive mode',
+     detail:'Creates the Ink renderer instance and mounts App.tsx. The bridge between the Node/Bun process and the React tree. Only used in REPL (interactive) mode.<br><br><span class="cs-role-label">PM role:</span> If the terminal UI crashes or flickers on startup, this is the first place to look.'},
+    {file:'setup.ts', dir:'/', filter:'root', layer:'Infra', badge:'by', short:'First-run setup flow — API key, account setup',
+     detail:'Runs the interactive setup wizard shown on first launch: API key entry, auth flow, initial configuration. Skipped on subsequent runs once setup is complete.<br><br><span class="cs-role-label">PM role:</span> The onboarding experience lives here. Time-to-first-response depends on how smooth this flow is.'},
+    {file:'projectOnboardingState.ts', dir:'/', filter:'root', layer:'Infra', badge:'by', short:'Tracks whether first-run onboarding steps have been shown',
+     detail:'Persists flags for which onboarding tips/dialogs have been shown to the user for the current project. Prevents repeated prompts.<br><br><span class="cs-role-label">PM role:</span> Controls the "first time in this project" experience.'},
+
+    // ENTRYPOINTS
+    {file:'cli.tsx', dir:'entrypoints/', filter:'entrypoints', layer:'Core', badge:'bg', short:'Full CLI entrypoint — wires Bun process to the REPL and SDK',
+     detail:'<strong>Where Bun starts execution.</strong> Sets up process signals (SIGINT, SIGTERM), configures stdout/stderr, and calls main.tsx. Think of it as the process wrapper around the application logic.<br><br><span class="cs-role-label">PM role:</span> Relevant for understanding how Claude Code handles Ctrl+C, process crashes, and clean shutdown.'},
+    {file:'init.ts', dir:'entrypoints/', filter:'entrypoints', layer:'Core', badge:'bg', short:'SDK initialization — exports the public SDK API',
+     detail:'The entrypoint for the Claude Code Agent SDK. Exports the query, stream, and agent functions that external developers use to build on Claude Code programmatically.<br><br><span class="cs-role-label">PM role:</span> This is the SDK surface. Everything SDK users can do is defined here.'},
+    {file:'mcp.ts', dir:'entrypoints/', filter:'entrypoints', layer:'Infra', badge:'bb', short:'MCP server entrypoint — runs Claude Code as an MCP server',
+     detail:'Allows Claude Code itself to be used as an MCP server (not just a client). Exposes Claude Code\'s capabilities to other MCP-compatible clients.<br><br><span class="cs-role-label">PM role:</span> Enables the "Claude Code as a service" integration pattern — Claude Code embedded inside other tools.'},
+
+    // QUERY
+    {file:'config.ts', dir:'query/', filter:'root', layer:'Core', badge:'bg', short:'Query engine config — model params, token budgets, retry settings',
+     detail:'Constants and config for the query loop: max tokens, temperature, retry counts, streaming timeouts. Centralizes tunable parameters for the core API call.<br><br><span class="cs-role-label">PM role:</span> Model behavior tuning (creativity vs consistency, max response length) starts here.'},
+    {file:'tokenBudget.ts', dir:'query/', filter:'root', layer:'Core', badge:'by', short:'Manages how many tokens to allocate for responses vs tool results',
+     detail:'Calculates and enforces token budgets: how much of the context window to use for the model response vs tool results vs conversation history. Prevents context overflow.<br><br><span class="cs-role-label">PM role:</span> When users hit "context too long" errors or see truncated tool results, this is the system managing those trade-offs.'},
+
+    // STATE
+    {file:'AppStateStore.ts', dir:'state/', filter:'state', layer:'State', badge:'bb', short:'Central runtime state store — the single source of truth',
+     detail:'<strong>The application\'s memory while it runs.</strong> Zustand-like reactive store holding: all conversation messages, current permission context, active tool calls, task list, session metadata, UI state. Every component reads from here; mutations flow through actions.<br><br><span class="cs-role-label">PM role:</span> When something is "stale" in the UI or state seems inconsistent, this is the source. Understanding this store is key to understanding how the whole app hangs together.'},
+    {file:'AppState.tsx', dir:'state/', filter:'state', layer:'State', badge:'bb', short:'React context provider wrapping the store',
+     detail:'Wraps the AppStateStore in a React context so any component can access state via hooks without prop drilling. The root context provider mounted in App.tsx.<br><br><span class="cs-role-label">PM role:</span> Architectural pattern that enables the component tree to react to state changes.'},
+    {file:'selectors.ts', dir:'state/', filter:'state', layer:'State', badge:'bb', short:'Derived state selector functions',
+     detail:'Memoized selector functions that derive computed values from raw state (e.g., "messages from the last 10 turns", "is there an active tool call?"). Prevents unnecessary re-renders by only recomputing when dependencies change.<br><br><span class="cs-role-label">PM role:</span> Performance optimization layer — relevant when investigating UI lag or re-render issues.'},
+    {file:'store.ts', dir:'state/', filter:'state', layer:'State', badge:'bb', short:'Store creation and subscription logic',
+     detail:'Creates the store instance and exposes subscribe() for external listeners (non-React code like services that need to react to state changes).<br><br><span class="cs-role-label">PM role:</span> How services (API, MCP) stay in sync with UI state without being React components.'},
+
+    // TOOLS
+    {file:'BashTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bo', short:'Run shell commands — the most powerful and scrutinized tool',
+     detail:'<strong>The "do anything" tool.</strong> Executes arbitrary shell commands in the user\'s environment. Has the most complex permission checking of any tool: deny rules checked first, allow rules with prefix matching (git:* matches all git subcommands), dangerous pattern detection, timeout enforcement.<br><br><span class="cs-role-label">PM role:</span> The primary source of permission-related user friction and the biggest security surface. Permission rule design for Bash is a key PM + security decision.'},
+    {file:'FileReadTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bg', short:'Read files — the model\'s eyes into the codebase',
+     detail:'Reads file contents (text, PDFs, images, Jupyter notebooks) and returns them to the model. Respects .gitignore and additionalDirectories settings. Supports line range reads to reduce token usage.<br><br><span class="cs-role-label">PM role:</span> The most-called tool in typical usage. Token cost scales with file size — targeting line ranges is a key optimization.'},
+    {file:'FileEditTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bg', short:'Edit files with exact string replacement — requires uniqueness',
+     detail:'Replaces a specific string in a file with new content. <strong>Requires the search string to appear exactly once</strong> — fails if ambiguous. This design prevents accidental multi-site edits. The model must have read the file first (enforced by checking file history snapshots).<br><br><span class="cs-role-label">PM role:</span> The primary code-editing mechanism. The "must read first" constraint is intentional safety design. Edit failures are often because the model\'s string doesn\'t match exactly (whitespace, encoding).'},
+    {file:'FileWriteTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bg', short:'Write/create entire files',
+     detail:'Writes complete file contents. Used for creating new files or completely rewriting existing ones. More expensive than FileEditTool for small changes but necessary for new file creation.<br><br><span class="cs-role-label">PM role:</span> Scaffolding new files, generating configs, creating boilerplate — this is the tool. Contrast with FileEditTool which handles targeted edits.'},
+    {file:'GlobTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bg', short:'Find files by glob pattern — sorted by modification time',
+     detail:'Searches for files matching patterns like **/*.tsx or src/**/*.test.ts. Returns paths sorted by recency (most recently modified first). Much faster than Bash find because it uses native file system APIs.<br><br><span class="cs-role-label">PM role:</span> The entry point for "show me all files of type X" queries. Sorting by modification time means the model sees recently-touched files first — a useful heuristic for active code.'},
+    {file:'GrepTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bg', short:'Search file contents with regex (ripgrep under the hood)',
+     detail:'Full regex search across files, with file type filtering, context lines (-A/-B/-C), and result limiting. Powered by ripgrep for speed. Returns file paths or matching lines depending on output_mode.<br><br><span class="cs-role-label">PM role:</span> How the model finds "where is X used" or "which files import Y". Critical for impact analysis and code navigation.'},
+    {file:'AgentTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bb', short:'Launch sub-agents — parallel, isolated QueryEngine instances',
+     detail:'<strong>The parallelism tool.</strong> Spins up new QueryEngine instances with their own context window and tool subset. Sub-agents run to completion and return one result. Can be run in parallel. Supports isolation:worktree for risky tasks in a separate git branch.<br><br><span class="cs-role-label">PM role:</span> Behind every "Explore", "Plan", and specialized agent in Claude Code. Also the backbone of the SDK\'s multi-agent patterns. Sub-agents don\'t inherit parent context — each starts fresh.'},
+    {file:'MCPTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bg', short:'Proxy tool that routes calls to external MCP servers',
+     detail:'Not a single tool but a dynamic tool class that gets instantiated for each tool exposed by connected MCP servers. When the model calls an MCP tool, MCPTool proxies the call to the right server via MCPConnectionManager.<br><br><span class="cs-role-label">PM role:</span> The mechanism that makes external tool servers feel like native tools. Every MCP integration goes through this class.'},
+    {file:'WebFetchTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bb', short:'Fetch a URL and return readable text/markdown',
+     detail:'Downloads a web page and converts it to readable text (stripping HTML, extracting main content). Used for reading documentation, checking URLs in code, fetching API references.<br><br><span class="cs-role-label">PM role:</span> High token cost (pages can be large). Relevant for features that need real-time web data in context.'},
+    {file:'WebSearchTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bb', short:'Search the web and return result snippets',
+     detail:'Queries a search engine and returns title+URL+snippet for each result. Much lower token cost than WebFetchTool since it only returns snippets. The model then decides which URLs to fetch in full.<br><br><span class="cs-role-label">PM role:</span> The research entry point. Works in tandem with WebFetchTool — search narrows candidates, fetch reads them.'},
+    {file:'AskUserQuestionTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bp', short:'Pause execution and ask the user a clarifying question',
+     detail:'Suspends the agentic loop and displays a question to the user, waiting for their response before continuing. Used when the model genuinely can\'t proceed without input (ambiguous spec, missing credential, destructive action needing confirmation).<br><br><span class="cs-role-label">PM role:</span> Controls the "how autonomous" dial. Overuse frustrates users; underuse leads to wrong assumptions. Relevant for configuring how much Claude should proceed vs ask.'},
+    {file:'TodoWriteTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bb', short:'Write a structured task list / progress tracker',
+     detail:'Writes a todo list to the session state, displayed in the UI. Used by the model to self-organize on multi-step tasks — shows users what\'s been done and what\'s next.<br><br><span class="cs-role-label">PM role:</span> Transparency feature. Users can see the model\'s "plan" in real time, which builds trust for long-running tasks.'},
+    {file:'SkillTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bp', short:'Execute skills (slash command markdown files) as full prompts',
+     detail:'Loads a skill\'s markdown file, substitutes any template variables ($ARGUMENTS etc.), and runs it as a full agent prompt. The mechanism behind /commit, /review-pr, and all other skills.<br><br><span class="cs-role-label">PM role:</span> Skills are the "saved workflows" product surface. SkillTool is what makes them execute.'},
+    {file:'EnterPlanModeTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'by', short:'Switch to read-only planning mode',
+     detail:'Sets the permission mode to "plan" — a read-only state where the model can read files and think but cannot write, edit, or run bash commands. Used to explore before committing.<br><br><span class="cs-role-label">PM role:</span> The "show me the plan first" feature. Reduces risk for exploratory tasks. A key trust-building feature for new users.'},
+    {file:'EnterWorktreeTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'by', short:'Create a git worktree for isolated, reversible work',
+     detail:'Creates a new git worktree (a separate checkout of the repo) so the model can make changes in isolation without affecting the main working directory. Auto-cleaned if no changes are made.<br><br><span class="cs-role-label">PM role:</span> Risk mitigation for risky tasks. The model can "try something" in a worktree and the user can diff/discard before merging.'},
+    {file:'ScheduleCronTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bp', short:'Schedule recurring tasks (cron jobs)',
+     detail:'Creates scheduled recurring tasks within the Claude Code task system. Allows the model or user to set up repeating background work.<br><br><span class="cs-role-label">PM role:</span> Part of the autonomous/background agent story. Enables "check this every morning" type use cases.'},
+    {file:'SendMessageTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bb', short:'Send messages to teammate agents in swarm mode',
+     detail:'In multi-agent (swarm/teams) mode, lets the coordinator send work assignments and messages to teammate agents. The inter-agent communication channel.<br><br><span class="cs-role-label">PM role:</span> Core to the teams/swarm product. Understanding this is key for multi-agent workflow features.'},
+    {file:'ToolSearchTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bb', short:'Fetch full schemas for deferred tools',
+     detail:'Some tools are "deferred" — their schemas are not loaded into the context at startup to save tokens. ToolSearchTool lets the model search for and fetch schemas on demand, expanding the available tool surface without paying the token cost upfront.<br><br><span class="cs-role-label">PM role:</span> Token optimization strategy. Deferred tools make large tool sets viable without context window bloat.'},
+    {file:'ConfigTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'by', short:'Read and write Claude Code settings programmatically',
+     detail:'Allows the model to read and update settings.json values during a conversation — model, permissions, env vars, etc. — without the user manually editing files.<br><br><span class="cs-role-label">PM role:</span> The /update-config skill surface. Enables "set up Claude Code for me" workflows.'},
+    {file:'LSPTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bp', short:'Language Server Protocol queries — go-to-def, find references, hover',
+     detail:'Queries language servers (TypeScript, Rust, Python etc.) for IDE-grade code intelligence: find all references to a symbol, go to definition, type information. Higher accuracy than grep-based search for code navigation.<br><br><span class="cs-role-label">PM role:</span> Part of the IDE integration story. Enables Claude Code to do what IDEs do — not just text search but semantic code understanding.'},
+    {file:'NotebookEditTool', dir:'tools/', filter:'tools', layer:'Tool', badge:'bb', short:'Edit Jupyter notebook cells with awareness of .ipynb structure',
+     detail:'Reads and edits .ipynb files understanding their JSON cell structure (code cells, markdown cells, outputs). Treats notebooks as structured documents rather than raw JSON.<br><br><span class="cs-role-label">PM role:</span> Data science user segment enabler. Notebooks are a primary workflow for ML/data teams.'},
+
+    // SERVICES
+    {file:'api/', dir:'services/', filter:'services', layer:'Infra', badge:'bb', short:'Anthropic API client — streaming, retry, token counting',
+     detail:'<strong>The wire to Claude\'s brain.</strong> Wraps @anthropic-ai/sdk with: exponential backoff retries on rate limits, real-time token counting, model alias resolution (sonnet → claude-sonnet-4-6), streaming backpressure. Every API call flows through here.<br><br><span class="cs-role-label">PM role:</span> Latency, reliability, and cost all depend on this service. Rate limit handling, model routing, and streaming quality are owned here.'},
+    {file:'mcp/', dir:'services/', filter:'services', layer:'Infra', badge:'bg', short:'MCP connection manager — connects to, routes calls to external servers',
+     detail:'MCPConnectionManager connects to all configured MCP servers at startup (stdio subprocess, HTTP/SSE, or in-process). Handles reconnection on failure, tool schema discovery, and routing MCPTool calls to the correct server.<br><br><span class="cs-role-label">PM role:</span> The reliability of MCP integrations (Jira, databases, internal APIs) depends on this service. Connection failures here mean tool failures in the model.'},
+    {file:'compact/', dir:'services/', filter:'services', layer:'Infra', badge:'by', short:'Auto-compaction — summarizes old messages to stay within context limits',
+     detail:'When the conversation approaches the model\'s context limit, this service summarizes old messages into a condensed system message. Fires PreCompact and PostCompact hooks. Users can also trigger it manually with /compact.<br><br><span class="cs-role-label">PM role:</span> Directly affects long-session experience. Poor compaction quality leads to Claude "forgetting" important context. Key quality metric for power users.'},
+    {file:'analytics/', dir:'services/', filter:'services', layer:'Infra', badge:'by', short:'GrowthBook feature flags + event logging',
+     detail:'Loads feature flags from GrowthBook at startup, provides the feature() function used throughout the codebase. Also handles event logging for product analytics. Bun\'s bundler eliminates feature-flagged code at compile time for production builds.<br><br><span class="cs-role-label">PM role:</span> <strong>Primary feature flag system.</strong> Rollouts, A/B tests, ant-only features, and experimental flags are all managed through GrowthBook and evaluated here.'},
+    {file:'plugins/', dir:'services/', filter:'services', layer:'Infra', badge:'bp', short:'Plugin loading, marketplace fetching, activation lifecycle',
+     detail:'Fetches plugin manifests from configured marketplaces, downloads plugin code, activates plugins by registering their tools/skills/hooks/commands. Runs at startup and when plugins are enabled/disabled.<br><br><span class="cs-role-label">PM role:</span> The plugin ecosystem infrastructure. Performance of plugin loading affects startup time. Plugin security (what can a plugin do?) is governed by this service.'},
+    {file:'oauth/', dir:'services/', filter:'services', layer:'Infra', badge:'bb', short:'OAuth flows for Claude.ai and Anthropic Console',
+     detail:'Handles OAuth2 authorization flows: opens browser, receives callback, stores tokens securely in keychain. Used for both Claude.ai (claude.ai/login) and Console (console.anthropic.com) authentication.<br><br><span class="cs-role-label">PM role:</span> Authentication UX. OAuth flow reliability directly impacts first-run activation rate.'},
+    {file:'autoDream/', dir:'services/', filter:'services', layer:'Infra', badge:'bp', short:'Background memory consolidation — distills sessions into persistent memory files',
+     detail:'Runs periodically in the background to read session transcripts and extract key learnings, user preferences, and project facts into structured memory files at ~/.claude/projects/…/memory/. These memory files are then included in future system prompts.<br><br><span class="cs-role-label">PM role:</span> The "Claude remembers you" feature. Drives the personalization and continuity product narrative.'},
+    {file:'SessionMemory/', dir:'services/', filter:'services', layer:'Infra', badge:'bp', short:'In-session memory management — facts learned mid-conversation',
+     detail:'Manages memories written during the current session (as opposed to autoDream\'s background consolidation). When the model calls the memory write function, this service persists it and makes it available immediately in the same session.<br><br><span class="cs-role-label">PM role:</span> Intra-session continuity. Complements autoDream (which handles cross-session memory).'},
+    {file:'settingsSync/', dir:'services/', filter:'services', layer:'Infra', badge:'by', short:'File watcher — triggers live reload when settings.json changes',
+     detail:'Watches ~/.claude/settings.json and .claude/settings.json for file system changes. When detected, triggers the settings reload pipeline: useSettingsChange hook → applySettingsChange → AppStateStore update → component re-renders. No restart required.<br><br><span class="cs-role-label">PM role:</span> The "settings take effect immediately" UX. Without this, users would need to restart — a significant DX improvement.'},
+    {file:'lsp/', dir:'services/', filter:'services', layer:'Infra', badge:'bp', short:'Language Server Protocol client — IDE-grade code intelligence',
+     detail:'Connects to language servers (tsserver, rust-analyzer, pyright, etc.) running in the background. Provides LSPTool with the ability to make semantic code queries. Manages LSP process lifecycle.<br><br><span class="cs-role-label">PM role:</span> The IDE integration backend. Enables go-to-definition, find-all-references, and type-aware refactoring — differentiating Claude Code from purely text-based tools.'},
+    {file:'voice.ts', dir:'services/', filter:'services', layer:'Infra', badge:'bb', short:'Voice STT — speech-to-text integration for voice input',
+     detail:'Integrates with speech-to-text services to transcribe voice input into text for the PromptInput. Handles audio capture, streaming transcription, and result injection into the input field.<br><br><span class="cs-role-label">PM role:</span> Voice input product surface. Accessibility and hands-free use case enabler.'},
+    {file:'tokenEstimation.ts', dir:'services/', filter:'services', layer:'Infra', badge:'by', short:'Pre-flight token count estimation before API calls',
+     detail:'Estimates the token count of a message + context before sending to the API. Used to decide whether to compact, warn the user, or reject an oversized request. More accurate than character-count heuristics.<br><br><span class="cs-role-label">PM role:</span> Cost predictability. Accurate estimation prevents surprise overages and "context too long" errors.'},
+
+    // COMPONENTS
+    {file:'App.tsx', dir:'components/', filter:'components', layer:'UI', badge:'bp', short:'Root React component — providers, global shortcuts, conditional screens',
+     detail:'<strong>The root of the UI tree.</strong> Mounts all context providers (AppState, settings, MCP), registers global keyboard shortcuts, and conditionally renders the active screen (REPL, settings, onboarding, etc.).<br><br><span class="cs-role-label">PM role:</span> If a global behavior is broken (Ctrl+C doesn\'t work, global shortcut missing), it\'s likely here. The conditional screen logic also controls which product surface is shown.'},
+    {file:'REPL.tsx', dir:'components/', filter:'components', layer:'UI', badge:'bp', short:'Main REPL screen — assembles the conversation UI',
+     detail:'The main interactive screen. Composes Messages, PromptInput, task sidebar, status bar, and any active dialogs into the full REPL layout. Manages scroll behavior and screen updates.<br><br><span class="cs-role-label">PM role:</span> The "main product" component. Layout changes, new sidebar panels, and full-screen features live here.'},
+    {file:'Messages.tsx', dir:'components/', filter:'components', layer:'UI', badge:'bp', short:'Conversation history display — renders all turns',
+     detail:'Maps over the conversation message array and renders each turn (user messages, assistant text, tool calls, tool results). Manages virtual scrolling for long conversations.<br><br><span class="cs-role-label">PM role:</span> Visual design of the conversation. How tool calls look, how errors display, streaming text appearance — all owned here.'},
+    {file:'PromptInput/', dir:'components/', filter:'components', layer:'UI', badge:'bp', short:'User text input with autocomplete for @ mentions and /commands',
+     detail:'Multi-line text input with real-time autocomplete: @ for file mentions, / for slash commands and skills, model-aware suggestions. Handles multi-line input, paste, and clipboard image attachment.<br><br><span class="cs-role-label">PM role:</span> The primary user input surface. Autocomplete quality, keyboard shortcuts, and input UX are all critical for retention.'},
+    {file:'diff/', dir:'components/', filter:'components', layer:'UI', badge:'bb', short:'File diff rendering for Edit/Write tool outputs',
+     detail:'Renders colored diffs showing what changed when the model edits a file — red for removed lines, green for added lines, context lines around changes. Powered by diff algorithm matching git diff output.<br><br><span class="cs-role-label">PM role:</span> Key trust-building feature. Users can see exactly what Claude changed before accepting. Diff quality and readability directly affect user confidence.'},
+    {file:'permissions/', dir:'components/', filter:'components', layer:'UI', badge:'by', short:'Permission prompt dialogs — allow/deny/ask UI',
+     detail:'Renders the interactive dialogs shown when Claude Code needs user approval: "Allow this bash command?", "Allow writes to this directory?". Includes options for "always allow", "allow once", "deny", "deny always".<br><br><span class="cs-role-label">PM role:</span> The permission UX is a primary trust and friction surface. Dialog design directly impacts both security and user frustration. Key enterprise concern.'},
+    {file:'Settings/', dir:'components/', filter:'components', layer:'UI', badge:'by', short:'Settings UI panel (opened with ⌘,)',
+     detail:'The in-app settings UI. Shows current configuration, allows toggling permission modes, managing MCP servers, and viewing plugin status without editing JSON directly.<br><br><span class="cs-role-label">PM role:</span> The "settings discoverability" surface. Many features are only known to users who find them here.'},
+    {file:'mcp/', dir:'components/', filter:'components', layer:'UI', badge:'bg', short:'MCP server management UI — connection status, enable/disable',
+     detail:'Shows the status of all configured MCP servers (connected, disconnected, error), allows viewing available tools from each server, and enables/disables individual servers.<br><br><span class="cs-role-label">PM role:</span> The MCP ecosystem management surface. Critical for enterprise admins managing multiple MCP integrations.'},
+    {file:'design-system/', dir:'components/', filter:'components', layer:'UI', badge:'bb', short:'Shared design tokens, typography, and base components',
+     detail:'The internal design system: color tokens, spacing, typography scale, and base UI primitives used throughout the component tree. Ink-compatible replacements for web UI components.<br><br><span class="cs-role-label">PM role:</span> Visual consistency. Any brand refresh or accessibility changes to the terminal UI start here.'},
+
+    // HOOKS
+    {file:'useCanUseTool.tsx', dir:'hooks/', filter:'hooks', layer:'State', badge:'bb', short:'Permission check hook — can this tool be used right now?',
+     detail:'React hook that calls checkPermissions() for a given tool/input and returns allow/deny/ask. Used by permission dialogs and tool buttons to show the right state to the user.<br><br><span class="cs-role-label">PM role:</span> The reactive permission surface. Every permission-gated UI element reads from this hook.'},
+    {file:'toolPermission/', dir:'hooks/', filter:'hooks', layer:'State', badge:'by', short:'Permission dialog state hooks — show/hide, record decisions',
+     detail:'Hooks managing the lifecycle of permission dialogs: which dialog is open, the pending decision, session-level "always allow" recording. Bridges the permission check system to the UI.<br><br><span class="cs-role-label">PM role:</span> Permission UX state management. Session-level "always allow" decisions are tracked here.'},
+    {file:'useSettings.ts', dir:'hooks/', filter:'hooks', layer:'State', badge:'by', short:'Read current settings from the store',
+     detail:'React hook providing the merged settings object (all 4 layers combined) to any component. Re-renders components when settings change via settingsSync.<br><br><span class="cs-role-label">PM role:</span> Any component that adapts to user settings reads through this hook.'},
+    {file:'useTasksV2.ts', dir:'hooks/', filter:'hooks', layer:'State', badge:'bb', short:'Task management hook — create, poll, update async tasks',
+     detail:'Hook providing the task CRUD operations and current task list to components. Handles polling for task state updates, progress events, and completion callbacks.<br><br><span class="cs-role-label">PM role:</span> The background task / parallel agent UI surface. Progress indicators and task status displays use this.'},
+    {file:'useMainLoopModel.ts', dir:'hooks/', filter:'hooks', layer:'State', badge:'bb', short:'Model selection — get/set the active Claude model',
+     detail:'Hook for reading and changing the active model (sonnet/opus/haiku). Triggers API calls with the new model on next turn.<br><br><span class="cs-role-label">PM role:</span> Model switching UX. Relevant for fast mode, model selection features, and cost-quality trade-off controls.'},
+
+    // COMMANDS
+    {file:'commit.ts', dir:'commands/', filter:'commands', layer:'Commands', badge:'bg', short:'/commit — full git commit workflow with conventional commits',
+     detail:'Implements the /commit command: reads git diff, generates a conventional commit message following project conventions from CLAUDE.md, confirms with user, runs git commit with co-author attribution.<br><br><span class="cs-role-label">PM role:</span> One of the highest-value workflows. Commit quality and co-author attribution are PM decisions baked into this command.'},
+    {file:'compact/', dir:'commands/', filter:'commands', layer:'Commands', badge:'by', short:'/compact — manually trigger context compaction',
+     detail:'User-facing /compact command. Calls the compact service to summarize the conversation immediately, displays the summary, and resets the context. Also accepts a custom instructions argument for what to preserve.<br><br><span class="cs-role-label">PM role:</span> Token cost management tool for power users. Usage rate is a signal of session length distribution.'},
+    {file:'config/', dir:'commands/', filter:'commands', layer:'Commands', badge:'by', short:'/config — read and write settings via CLI',
+     detail:'Provides /config get and /config set for reading and modifying settings without opening the settings UI or editing JSON files manually.<br><br><span class="cs-role-label">PM role:</span> Power user settings surface. Important for scripted setup and onboarding flows.'},
+    {file:'clear/', dir:'commands/', filter:'commands', layer:'Commands', badge:'bb', short:'/clear — reset the conversation',
+     detail:'Clears the current conversation and starts fresh. Triggers the Stop lifecycle hook. Does not delete session transcript — history is preserved for /resume.<br><br><span class="cs-role-label">PM role:</span> Session management. Clearing vs resuming is a key part of the conversation lifecycle UX.'},
+    {file:'doctor/', dir:'commands/', filter:'commands', layer:'Commands', badge:'by', short:'/doctor — diagnose common setup problems',
+     detail:'Runs a series of health checks: API key validity, network connectivity, file permissions, MCP server connections, settings file validity. Returns a report of issues and suggested fixes.<br><br><span class="cs-role-label">PM role:</span> Self-service troubleshooting surface. Reduces support burden. Known issues and their fixes are encoded here.'},
+    {file:'cost/', dir:'commands/', filter:'commands', layer:'Commands', badge:'by', short:'/cost — show token usage and estimated API cost',
+     detail:'Displays a breakdown of token usage for the current session: input tokens, output tokens, cache hits, estimated cost in USD. Pulls from cost-tracker.ts.<br><br><span class="cs-role-label">PM role:</span> Cost transparency feature. Enterprise customers often want this for budget management.'},
+    {file:'help/', dir:'commands/', filter:'commands', layer:'Commands', badge:'bb', short:'/help — show available commands and usage',
+     detail:'Lists all available commands with descriptions, or shows detailed help for a specific command. Includes shortcuts and usage examples.<br><br><span class="cs-role-label">PM role:</span> Discoverability surface. How users learn what Claude Code can do interactively.'},
+
+    // UTILS
+    {file:'permissions.ts', dir:'utils/', filter:'utils', layer:'Infra', badge:'by', short:'Core permission rule evaluation logic',
+     detail:'The decision engine for permissions. Takes a tool name + input + all rule sources (user, project, local, policy, session) and returns allow/deny/ask. Implements the precedence ordering and pattern matching (Bash(git:*) etc.).<br><br><span class="cs-role-label">PM role:</span> The algorithm behind permission decisions. Rule syntax, precedence, and matching behavior are all defined here. Critical for enterprise security posture.'},
+    {file:'auth.ts', dir:'utils/', filter:'utils', layer:'Infra', badge:'bb', short:'API key and credential management',
+     detail:'Reads API keys from keychain, environment variables, and settings files. Handles the priority order for credential sources and validates key format. Used by the API service on every call.<br><br><span class="cs-role-label">PM role:</span> Authentication reliability. Credential source priority is a common enterprise configuration need (env var vs keychain vs settings).'},
+    {file:'api.ts', dir:'utils/', filter:'utils', layer:'Infra', badge:'bb', short:'Low-level API request utilities',
+     detail:'Utility functions for constructing API requests: header building, request signing, error classification (retryable vs fatal). Used by services/api/.<br><br><span class="cs-role-label">PM role:</span> Error classification here determines which errors get retried vs surface to users.'},
+    {file:'bash/', dir:'utils/', filter:'utils', layer:'Infra', badge:'bo', short:'Bash command parsing and safety checking utilities',
+     detail:'Parses bash commands to extract the base command and arguments for permission rule matching. Also contains dangerous pattern detection (rm -rf, etc.) used by BashTool\'s permission check.<br><br><span class="cs-role-label">PM role:</span> Security surface. The list of "dangerous patterns" that trigger warnings is maintained here.'},
+    {file:'agentContext.ts', dir:'utils/', filter:'utils', layer:'Infra', badge:'bb', short:'Context passed to sub-agents — tools, permissions, parent session info',
+     detail:'The data structure passed from a parent QueryEngine to child sub-agent QueryEngines. Controls which tools the sub-agent gets, the permission mode, and any inherited context.<br><br><span class="cs-role-label">PM role:</span> Sub-agent capability inheritance. Determines what sub-agents can and can\'t do relative to their parent.'},
+    {file:'attribution.ts', dir:'utils/', filter:'utils', layer:'Infra', badge:'by', short:'Generates commit and PR attribution trailers',
+     detail:'Reads attribution settings and generates the "Co-Authored-By: Claude…" trailers for git commits and PR descriptions. Respects the attribution.commit and attribution.pr settings (set to "" to disable).<br><br><span class="cs-role-label">PM role:</span> Brand and attribution policy. Enterprise customers sometimes want custom attribution text or none at all.'},
+  ];
+
+  var currentFilter = 'all';
+
+  function layerBadge(b, layer) {
+    return '<span class="badge ' + b + '">' + layer + '</span>';
+  }
+
+  function render() {
+    var tbody = document.getElementById('cs-tbody');
+    if (!tbody) return;
+    var rows = '';
+    FILES.forEach(function(f, idx) {
+      var hidden = (currentFilter !== 'all' && f.filter !== currentFilter) ? ' cs-hidden' : '';
+      rows += '<tr class="cs-row' + hidden + '" data-idx="' + idx + '">'
+        + '<td><div class="cs-file">' + f.file + '</div><div class="cs-dir">' + f.dir + '</div></td>'
+        + '<td><div class="cs-short">' + f.short + '</div></td>'
+        + '<td>' + layerBadge(f.badge, f.layer) + '</td>'
+        + '<td><span class="cs-chevron">›</span></td>'
+        + '</tr>'
+        + '<tr class="cs-expand cs-expand-' + idx + (hidden ? ' cs-hidden' : '') + '">'
+        + '<td colspan="4"><div class="cs-detail">' + f.detail + '</div></td>'
+        + '</tr>';
+    });
+    tbody.innerHTML = rows;
+
+    // bind row clicks
+    var rows2 = tbody.querySelectorAll('.cs-row');
+    for (var i=0; i<rows2.length; i++) {
+      (function(row) {
+        row.addEventListener('click', function() {
+          var idx = row.getAttribute('data-idx');
+          var expRow = tbody.querySelector('.cs-expand-' + idx);
+          var isOpen = expRow && expRow.classList.contains('open');
+          // close all
+          var allExp = tbody.querySelectorAll('.cs-expand');
+          var allRows = tbody.querySelectorAll('.cs-row');
+          for (var j=0;j<allExp.length;j++) allExp[j].classList.remove('open');
+          for (var j=0;j<allRows.length;j++) allRows[j].classList.remove('expanded');
+          // toggle this one
+          if (!isOpen && expRow) {
+            expRow.classList.add('open');
+            row.classList.add('expanded');
+          }
+        });
+      })(rows2[i]);
+    }
+  }
+
+  // filter buttons
+  document.getElementById('cs-filters') && document.getElementById('cs-filters').addEventListener('click', function(e) {
+    var btn = e.target.closest('.csf');
+    if (!btn) return;
+    currentFilter = btn.getAttribute('data-filter');
+    var btns = document.querySelectorAll('.csf');
+    for (var i=0;i<btns.length;i++) btns[i].classList.toggle('active', btns[i]===btn);
+    render();
+  });
+
+  // render on first show (when page becomes active)
+  var rendered = false;
+  var origShowPage = window._showPage;
+  // hook into nav clicks — re-render when code-structure page is shown
+  document.querySelectorAll('.nl[data-page="code-structure"]').forEach(function(el) {
+    el.addEventListener('click', function() { if (!rendered) { render(); rendered = true; } });
+  });
+  // also render immediately in case it's the active page
+  if (document.getElementById('page-code-structure') && document.getElementById('page-code-structure').classList.contains('active')) {
+    render(); rendered = true;
+  }
+  // also render on first click via the overview grid (if any)
+  document.addEventListener('click', function(e) {
+    var el = e.target.closest('[data-page="code-structure"]');
+    if (el && !rendered) { setTimeout(function(){ render(); rendered = true; }, 50); }
+  });
+
+}());
+</script>
+</body>
+</html>
