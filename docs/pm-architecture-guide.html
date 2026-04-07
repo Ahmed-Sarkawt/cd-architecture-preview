@@ -157,6 +157,50 @@ tr:hover td { background: var(--surface); }
 .sri-t { font-weight: 500; font-size: 13px; color: #fff; }
 .sri-d { font-size: 12px; color: var(--muted); }
 .sr-empty { padding: 20px 16px; text-align: center; color: var(--muted); font-size: 13px; }
+
+/* Architecture diagram */
+.arch { margin: 24px 0 28px; }
+.arch-band { border: 1px solid var(--border2); border-radius: 8px; padding: 12px 20px; text-align: center; }
+.arch-band.g { border-color: rgba(0,201,167,.4); background: rgba(0,201,167,.05); }
+.arch-band.b { border-color: rgba(0,120,255,.4); background: rgba(0,120,255,.05); }
+.arch-band.o { border-color: rgba(255,107,53,.4); background: rgba(255,107,53,.05); }
+.arch-band.p { border-color: rgba(168,85,247,.4); background: rgba(168,85,247,.05); }
+.arch-band.y { border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.05); }
+.arch-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .12em; font-weight: 600; margin-bottom: 5px; }
+.arch-band.g .arch-label { color: var(--accent); }
+.arch-band.b .arch-label { color: var(--accent2); }
+.arch-band.o .arch-label { color: var(--accent3); }
+.arch-band.p .arch-label { color: var(--accent4); }
+.arch-band.y .arch-label { color: var(--warn); }
+.arch-chips { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.arch-chip { font-size: 11px; color: var(--text); padding: 2px 10px; background: var(--surface2); border-radius: 4px; border: 1px solid var(--border2); font-family: var(--mono); }
+.arch-note { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.arch-conn { display: flex; justify-content: center; color: var(--muted); font-size: 18px; padding: 2px 0; line-height: 1.4; }
+.arch-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.arch-footer { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.arch-note-box { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; font-size: 11px; color: var(--muted); min-width: 200px; }
+.arch-note-box code { font-size: 11px; }
+
+/* Copy buttons */
+pre { position: relative; }
+.copy-btn { position: absolute; top: 8px; right: 8px; background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; padding: 3px 9px; font-family: var(--mono); font-size: 10px; color: var(--muted); cursor: pointer; transition: all .15s; opacity: 0; pointer-events: none; }
+pre:hover .copy-btn { opacity: 1; pointer-events: auto; }
+.copy-btn:hover { color: var(--text); border-color: var(--muted); }
+.copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+
+/* Cost calculator */
+.calc { background: var(--surface); border: 1px solid var(--border2); border-radius: 8px; padding: 20px; margin: 20px 0; }
+.calc h3 { margin: 0 0 16px; font-size: 13px; color: #fff; }
+.calc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+.calc-field label { display: block; font-size: 10px; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.calc-field select { width: 100%; background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; color: var(--text); font-family: var(--sans); font-size: 12px; padding: 7px 8px; outline: none; cursor: pointer; }
+.calc-field select:focus { border-color: var(--accent); }
+.calc-result { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; }
+.calc-stat { text-align: center; }
+.calc-val { font-family: var(--mono); font-size: 20px; font-weight: 600; color: var(--accent); line-height: 1.2; }
+.calc-lbl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.calc-tip { grid-column: 1/-1; background: rgba(0,201,167,.06); border: 1px solid rgba(0,201,167,.2); border-radius: 6px; padding: 10px 14px; font-size: 12px; color: var(--muted); }
+.calc-tip strong { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -194,6 +238,10 @@ tr:hover td { background: var(--surface); }
     <div class="nl" data-page="code-structure"><span class="dot" style="background:var(--accent2)"></span>Code Structure Reference</div>
     <div class="nl" data-page="token-optimization"><span class="dot" style="background:var(--warn)"></span>Token Optimization</div>
     <div class="nl" data-page="upcoming-features"><span class="dot" style="background:var(--accent4)"></span>Upcoming Features</div>
+    <div class="ns">Resources</div>
+    <div class="nl" data-page="memory"><span class="dot" style="background:var(--accent)"></span>Memory System</div>
+    <div class="nl" data-page="sdk"><span class="dot" style="background:var(--accent2)"></span>SDK &amp; Programmatic Use</div>
+    <div class="nl" data-page="troubleshooting"><span class="dot" style="background:var(--danger)"></span>Troubleshooting</div>
   </div>
 </nav>
 
@@ -229,7 +277,47 @@ tr:hover td { background: var(--surface); }
     <div class="oc g" data-page="pm-guide"><div class="oi">💡</div><div class="ott">PM Guide &amp; Token Tips</div><div class="of">for product managers</div><div class="od">How PMs use Claude Code effectively and control token cost.</div><div class="oa">→</div></div>
     <div class="oc y" data-page="token-optimization"><div class="oi">⚡</div><div class="ott">Token Optimization</div><div class="of">query.ts · constants/ · compact/</div><div class="od">What drives token usage, where in the code it happens, and how to reduce it.</div><div class="oa">→</div></div>
     <div class="oc p" data-page="upcoming-features"><div class="oi">🚀</div><div class="ott">Upcoming Features</div><div class="of">feature flags · new dirs</div><div class="od">Voice, Buddy, KAIROS, Coordinator mode, Remote sessions and more in development.</div><div class="oa">→</div></div>
+    <div class="oc g" data-page="memory"><div class="oi">🧠</div><div class="ott">Memory System</div><div class="of">autoDream · ~/.claude/memory/</div><div class="od">How Claude Code persists knowledge across sessions using memory files.</div><div class="oa">→</div></div>
+    <div class="oc b" data-page="sdk"><div class="oi">📦</div><div class="ott">SDK &amp; Programmatic Use</div><div class="of">entrypoints/init.ts</div><div class="od">Use Claude Code as a library — query, stream, and build agents programmatically.</div><div class="oa">→</div></div>
+    <div class="oc o" data-page="troubleshooting"><div class="oi">🔧</div><div class="ott">Troubleshooting</div><div class="of">common issues &amp; fixes</div><div class="od">Context limits, permission errors, MCP issues, cost spikes — and how to fix them.</div><div class="oa">→</div></div>
   </div>
+  <h2>System architecture</h2>
+  <div class="arch">
+    <div class="arch-band g">
+      <div class="arch-label">Input Layer</div>
+      <div class="arch-chips">
+        <span class="arch-chip">Terminal REPL</span>
+        <span class="arch-chip">IDE Extension</span>
+        <span class="arch-chip">SDK / Headless</span>
+      </div>
+    </div>
+    <div class="arch-conn">↓</div>
+    <div class="arch-band b">
+      <div class="arch-label">QueryEngine.ts</div>
+      <div class="arch-note">Session state · conversation history · plugin loading · tool registry</div>
+    </div>
+    <div class="arch-conn">↓</div>
+    <div class="arch-band o">
+      <div class="arch-label">query.ts — Agentic Loop</div>
+      <div class="arch-note">Stream from API → intercept tool calls → execute → append results → repeat until done</div>
+    </div>
+    <div class="arch-conn">↙&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↘</div>
+    <div class="arch-row2">
+      <div class="arch-band p">
+        <div class="arch-label">Anthropic API</div>
+        <div class="arch-note">Streaming · token counting · retry logic · auto-compact</div>
+      </div>
+      <div class="arch-band y">
+        <div class="arch-label">Tools (25+)</div>
+        <div class="arch-note">Permission check → execute → result fed back to loop</div>
+      </div>
+    </div>
+    <div class="arch-footer">
+      <div class="arch-note-box"><code>context.ts</code> — injects CLAUDE.md, git status, memory files, and settings into every API call as the system prompt</div>
+      <div class="arch-note-box"><code>services/compact/</code> — auto-summarizes old messages when context approaches the 200K token limit</div>
+    </div>
+  </div>
+
   <h2>Entry point</h2>
   <div class="callout info"><div class="ct2">main.tsx → QueryEngine → query.ts → Anthropic API</div>Every interaction traces this path. Understanding it unlocks everything else.</div>
   <div class="flow">
@@ -746,6 +834,43 @@ tr:hover td { background: var(--surface); }
   <p>Sub-agents start fresh context windows. For broad research, having Claude launch parallel sub-agents is cheaper than one long session — each has a clean slate.</p>
   <h3>5. Use /clear for fresh starts</h3>
   <p><code>/clear</code> resets the conversation entirely. Use between completely different tasks — don't let one session balloon across 5 different topics.</p>
+  <h2>Estimate your session cost</h2>
+  <div class="calc">
+    <div class="calc-grid">
+      <div class="calc-field">
+        <label>Workflow type</label>
+        <select id="calc-workflow" onchange="calcUpdate()">
+          <option value="quick">Quick question / small edit</option>
+          <option value="moderate" selected>Moderate task (5–15 tool calls)</option>
+          <option value="complex">Complex feature / refactor</option>
+          <option value="research">Deep research / exploration</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>Large file reads</label>
+        <select id="calc-files" onchange="calcUpdate()">
+          <option value="0">None</option>
+          <option value="3" selected>A few (3–5)</option>
+          <option value="10">Many (10+)</option>
+        </select>
+      </div>
+      <div class="calc-field">
+        <label>Model</label>
+        <select id="calc-model" onchange="calcUpdate()">
+          <option value="sonnet" selected>Sonnet 4.6</option>
+          <option value="opus">Opus 4.6</option>
+          <option value="haiku">Haiku 4.5</option>
+        </select>
+      </div>
+    </div>
+    <div class="calc-result">
+      <div class="calc-stat"><div class="calc-val" id="calc-tokens">~80K</div><div class="calc-lbl">Est. input tokens</div></div>
+      <div class="calc-stat"><div class="calc-val" id="calc-output">~8K</div><div class="calc-lbl">Est. output tokens</div></div>
+      <div class="calc-stat"><div class="calc-val" id="calc-cost">~$0.36</div><div class="calc-lbl">Est. cost (Sonnet)</div></div>
+      <div class="calc-tip" id="calc-tip"><strong>Tip:</strong> Use <code>/compact</code> after completing a major subtask to cut context by 60–80%.</div>
+    </div>
+  </div>
+
   <h2>CLAUDE.md — your most powerful PM tool</h2>
   <pre><code># CLAUDE.md example
 This is Claude Code, Anthropic's CLI.
@@ -827,6 +952,180 @@ This is Claude Code, Anthropic's CLI.
   </table>
 </section>
 
+
+<!-- MEMORY -->
+<section class="page" id="page-memory">
+  <div class="ph"><div class="pt">Resources</div><div class="pp">Memory System</div><div class="pd">How Claude Code persists knowledge across sessions — memory files, autoDream, and how memory flows into context.</div></div>
+
+  <div class="callout info"><div class="ct2">What memory is</div>Memory is a set of Markdown files in <code>~/.claude/projects/[project-hash]/memory/</code>. Claude reads them at the start of every session and they become part of its context — persistent knowledge without polluting the conversation.</div>
+
+  <h2>Memory file types</h2>
+  <div class="cards">
+    <div class="card"><div class="ct">user</div><div class="cd">Who the user is — role, expertise, preferences. Lets Claude tailor explanations and approach to the specific person.</div><span class="badge bg">Personal</span></div>
+    <div class="card"><div class="ct">feedback</div><div class="cd">How Claude should behave — corrections and confirmed good approaches. Prevents repeating the same mistakes across sessions.</div><span class="badge bb">Behavioral</span></div>
+    <div class="card"><div class="ct">project</div><div class="cd">Ongoing work context — who is doing what, why, key decisions. Gives background that isn't in the code or git history.</div><span class="badge bo">Contextual</span></div>
+    <div class="card"><div class="ct">reference</div><div class="cd">Pointers to external systems — Linear project IDs, Grafana dashboards, Slack channels. Where to look for information.</div><span class="badge bp">Pointers</span></div>
+  </div>
+
+  <h2>File structure</h2>
+  <pre><code>~/.claude/projects/[project-hash]/memory/
+├── MEMORY.md              ← index file (loaded every session)
+├── user_role.md           ← user type memory
+├── feedback_testing.md    ← feedback memory
+├── project_auth_rewrite.md← project memory
+└── reference_linear.md    ← reference memory
+
+Each file has frontmatter:
+---
+name: User is a senior backend engineer
+description: Role and expertise level for tailoring responses
+type: user
+---
+[content here]</code></pre>
+
+  <h2>How memory flows into context</h2>
+  <div class="tl">
+    <div class="ti on"><div class="tl-tag">Step 1</div><div class="tl-t">Session starts</div><div class="tl-d"><code>context.ts</code> reads <code>MEMORY.md</code> (the index) and all memory files from the project's memory directory.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 2</div><div class="tl-t">Injected into system prompt</div><div class="tl-d">Memory content is appended to the system prompt sent with every API call. Claude "knows" this context before the first message.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 3</div><div class="tl-t">Claude writes new memories</div><div class="tl-d">During a session, Claude can write new memory files or update existing ones using the <code>Write</code> tool targeting the memory directory.</div></div>
+    <div class="ti on"><div class="tl-tag">Step 4</div><div class="tl-t">autoDream consolidates</div><div class="tl-d">The <code>autoDream</code> background service distills session knowledge into persistent memory files after long sessions.</div></div>
+  </div>
+
+  <h2>autoDream service</h2>
+  <p>Located in <code>services/autoDream/</code>, autoDream is a background task that runs after sessions. It:</p>
+  <ul>
+    <li>Reviews the session transcript for things worth remembering</li>
+    <li>Identifies new user preferences, feedback, project decisions</li>
+    <li>Writes or updates memory files in the project's memory directory</li>
+    <li>Runs as a <code>dream</code> task type (visible in the task system)</li>
+  </ul>
+  <div class="callout tip"><div class="ct2">MEMORY.md is the index</div>Only the first 200 lines of MEMORY.md are loaded each session. Keep entries concise (one line each). Memory files themselves are loaded when referenced — the index is the gatekeeper.</div>
+
+  <h2>What NOT to save in memory</h2>
+  <table>
+    <thead><tr><th>Don't save</th><th>Why</th><th>Use instead</th></tr></thead>
+    <tbody>
+      <tr><td>File paths, code patterns, architecture</td><td>Derivable by reading current code</td><td>Just read the file when needed</td></tr>
+      <tr><td>Git history or recent changes</td><td><code>git log</code> is authoritative</td><td>Run git commands directly</td></tr>
+      <tr><td>In-progress task state</td><td>Only useful in current session</td><td>Use TodoWriteTool for current session</td></tr>
+      <tr><td>PR lists or activity summaries</td><td>Snapshots go stale quickly</td><td>Save only the surprising/non-obvious insight</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SDK -->
+<section class="page" id="page-sdk">
+  <div class="ph"><div class="pt">Resources</div><div class="pp">SDK &amp; Programmatic Use</div><div class="pd">How to use Claude Code as a library — run queries, stream responses, and build agents programmatically without the terminal UI.</div></div>
+
+  <div class="callout info"><div class="ct2">Entrypoint</div>The SDK surface is <code>entrypoints/init.ts</code>. It exports the functions external code calls. The same <code>QueryEngine</code> that powers the REPL runs underneath — no separate implementation.</div>
+
+  <h2>When to use the SDK vs the CLI</h2>
+  <table>
+    <thead><tr><th>Use case</th><th>CLI</th><th>SDK</th></tr></thead>
+    <tbody>
+      <tr><td>Interactive coding session</td><td>Yes</td><td>No</td></tr>
+      <tr><td>CI/CD automation</td><td>Yes (headless)</td><td>Yes</td></tr>
+      <tr><td>Embed Claude Code in your own app</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Multi-agent orchestration</td><td>Via AgentTool</td><td>Yes (direct)</td></tr>
+      <tr><td>Custom permission handling</td><td>Limited</td><td>Full control</td></tr>
+      <tr><td>Streaming UI integration</td><td>No</td><td>Yes</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Basic usage</h2>
+  <pre><code>import { query } from '@anthropic-ai/claude-code'
+
+// Single query — returns when done
+const result = await query({
+  prompt: 'What does the permissions system do?',
+  options: {
+    maxTurns: 10,
+    tools: ['FileReadTool', 'GlobTool', 'GrepTool'],
+    permissionMode: 'acceptEdits'
+  }
+})
+
+console.log(result.text)</code></pre>
+
+  <h2>Streaming</h2>
+  <pre><code>import { stream } from '@anthropic-ai/claude-code'
+
+for await (const event of stream({
+  prompt: 'Refactor the auth module',
+  options: { permissionMode: 'bypassPermissions' }
+})) {
+  if (event.type === 'text') process.stdout.write(event.text)
+  if (event.type === 'tool_use') console.log('Tool:', event.tool)
+  if (event.type === 'result') console.log('Done:', event.usage)
+}</code></pre>
+
+  <h2>Sub-agent pattern</h2>
+  <pre><code>// Run parallel research agents
+import { query } from '@anthropic-ai/claude-code'
+
+const [permissions, tools] = await Promise.all([
+  query({ prompt: 'Explain the permissions architecture', options: { tools: ['FileReadTool', 'GrepTool'] } }),
+  query({ prompt: 'List all tool implementations', options: { tools: ['GlobTool'] } })
+])
+
+// Each agent gets a fresh context window — no shared state</code></pre>
+
+  <h2>Key SDK options</h2>
+  <table>
+    <thead><tr><th>Option</th><th>Type</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>tools</code></td><td>string[]</td><td>Restrict which tools the agent can use</td></tr>
+      <tr><td><code>permissionMode</code></td><td>string</td><td>Set permission level (default, acceptEdits, bypassPermissions)</td></tr>
+      <tr><td><code>maxTurns</code></td><td>number</td><td>Cap on how many tool-call rounds before stopping</td></tr>
+      <tr><td><code>model</code></td><td>string</td><td>Override the model (sonnet, opus, haiku)</td></tr>
+      <tr><td><code>systemPrompt</code></td><td>string</td><td>Prepend custom instructions to the system prompt</td></tr>
+      <tr><td><code>cwd</code></td><td>string</td><td>Set the working directory for file operations</td></tr>
+      <tr><td><code>mcpServers</code></td><td>object</td><td>Attach MCP servers to the agent session</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout tip"><div class="ct2">PM insight</div>The SDK is how Claude Code becomes a platform primitive — embedded in CI pipelines, internal tools, dashboards, and automation workflows. Every SDK user is a potential enterprise expansion vector.</div>
+</section>
+
+<!-- TROUBLESHOOTING -->
+<section class="page" id="page-troubleshooting">
+  <div class="ph"><div class="pt">Resources</div><div class="pp">Troubleshooting</div><div class="pd">Common problems, what causes them, and how to fix them.</div></div>
+
+  <h2>Context &amp; token issues</h2>
+  <div class="tl">
+    <div class="ti"><div class="tl-tag">Problem</div><div class="tl-t">"Context too long" error or auto-compact fires unexpectedly</div><div class="tl-d"><strong>Cause:</strong> Session accumulated too many tokens — large file reads, verbose tool output, or a very long conversation.<br><strong>Fix:</strong> Run <code>/compact</code> to summarize history. For very long sessions, <code>/clear</code> starts fresh. Use targeted file reads (offset/limit) instead of reading whole files.</div></div>
+    <div class="ti"><div class="tl-tag">Problem</div><div class="tl-t">Cost is much higher than expected</div><div class="tl-d"><strong>Cause:</strong> Usually a large file read or Bash command with verbose output (build logs, test output). Every tool result stays in context for the rest of the session.<br><strong>Fix:</strong> Pipe verbose commands through <code>head</code> or <code>grep</code>. Use <code>/compact</code> after completing a subtask. Check <code>cost-tracker.ts</code> output in the status bar.</div></div>
+    <div class="ti"><div class="tl-tag">Problem</div><div class="tl-t">Claude seems to forget earlier context</div><div class="tl-d"><strong>Cause:</strong> Auto-compact summarized old messages — the summary replaces exact history. This is expected behavior for long sessions.<br><strong>Fix:</strong> For information that must persist, write it to a file or memory. Use sub-agents for parallel tasks so each starts with a clean context.</div></div>
+  </div>
+
+  <h2>Permission errors</h2>
+  <div class="tl">
+    <div class="ti"><div class="tl-tag">Problem</div><div class="tl-t">Tool silently denied / never prompts</div><div class="tl-d"><strong>Cause:</strong> A deny rule in settings.json is matching. Deny rules are checked before allow rules and before interactive prompts.<br><strong>Fix:</strong> Check <code>.claude/settings.json</code> and <code>~/.claude/settings.json</code> for deny rules. The rule with the highest precedence wins (policy &gt; CLI arg &gt; session &gt; local &gt; project &gt; user).</div></div>
+    <div class="ti"><div class="tl-tag">Problem</div><div class="tl-t">Every Bash command asks for permission</div><div class="tl-d"><strong>Cause:</strong> Default permission mode — Bash is the most scrutinized tool.<br><strong>Fix:</strong> Add allow rules for trusted commands: <code>"Bash(git:*)"</code>, <code>"Bash(npm run:*)"</code>. Or set <code>defaultMode: "acceptEdits"</code> to auto-accept file ops while still prompting for Bash.</div></div>
+    <div class="ti"><div class="tl-tag">Problem</div><div class="tl-t">Can't write files outside the project directory</div><div class="tl-d"><strong>Cause:</strong> Claude Code restricts file writes to the project directory and any <code>additionalDirectories</code> listed in settings.<br><strong>Fix:</strong> Add the target directory to <code>permissions.additionalDirectories</code> in settings.json.</div></div>
+  </div>
+
+  <h2>MCP issues</h2>
+  <div class="tl">
+    <div class="ti"><div class="tl-tag">Problem</div><div class="tl-t">MCP server not connecting / tools not appearing</div><div class="tl-d"><strong>Cause:</strong> Server process failed to start, wrong command/args, or startup error.<br><strong>Fix:</strong> Run the server command manually in a terminal to see its output. Check <code>command</code> and <code>args</code> in mcpServers config. For HTTP servers, verify the URL is reachable.</div></div>
+    <div class="ti"><div class="tl-tag">Problem</div><div class="tl-t">MCP tool call hangs / times out</div><div class="tl-d"><strong>Cause:</strong> The MCP server is slow to respond or has crashed silently.<br><strong>Fix:</strong> Restart Claude Code (restarts MCP server processes). Add timeout handling to your MCP server. Check server logs.</div></div>
+    <div class="ti"><div class="tl-tag">Problem</div><div class="tl-t">MCP instructions bloating token usage</div><div class="tl-d"><strong>Cause:</strong> MCP server instructions are marked <code>DANGEROUS_uncached</code> — they can't be prompt-cached because servers connect/disconnect dynamically.<br><strong>Fix:</strong> Keep MCP server descriptions concise. Consider combining multiple small MCP servers into one if they're always used together.</div></div>
+  </div>
+
+  <h2>Tool &amp; session issues</h2>
+  <table>
+    <thead><tr><th>Problem</th><th>Likely cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>FileEditTool fails with "string not found"</td><td>The search string doesn't match exactly (whitespace, encoding, file changed)</td><td>Re-read the file first, copy the exact string, retry</td></tr>
+      <tr><td>Bash command output truncated</td><td>Tool result hit the 50K char limit</td><td>Pipe through <code>head -50</code> or <code>grep</code> to reduce output size</td></tr>
+      <tr><td>Session transcript not saved</td><td><code>cleanupPeriodDays: 0</code> in settings disables transcripts</td><td>Set a non-zero value in <code>~/.claude/settings.json</code></td></tr>
+      <tr><td>Slow response on first message</td><td>Startup tasks (GrowthBook init, keychain fetch) still running</td><td>Expected on cold start — subsequent messages are faster</td></tr>
+      <tr><td>Model keeps switching unexpectedly</td><td>Session auto-escalation or settings override</td><td>Check <code>model</code> in settings.json and any CLI flags</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout tip"><div class="ct2">Quick reset sequence</div>If Claude is in a bad state: (1) <code>/compact</code> to summarize, (2) <code>/clear</code> if still broken, (3) restart the terminal session if all else fails. Transcripts are preserved even after <code>/clear</code>.</div>
+</section>
 
 <!-- TOKEN OPTIMIZATION -->
 <section class="page" id="page-token-optimization">
@@ -970,7 +1269,10 @@ This is Claude Code, Anthropic's CLI.
     {id:'pm-guide',title:'PM Guide & Token Tips',tag:'For PMs',desc:'How PMs use Claude Code, token cost strategies, CLAUDE.md, workflows'},
     {id:'code-structure',title:'Code Structure Reference',tag:'Reference',desc:'Every file in the codebase: what it does, its role, and why it exists — for PMs'},
     {id:'token-optimization',title:'Token Optimization',tag:'Deep Dive',desc:'Top causes of token usage, concrete numbers, what is already optimized, and improvement opportunities'},
-    {id:'upcoming-features',title:'Upcoming Features',tag:'Roadmap',desc:'Voice mode, Buddy companion, KAIROS, Coordinator mode, Remote sessions, Web browser tool, SSH, memory snapshots'}
+    {id:'upcoming-features',title:'Upcoming Features',tag:'Roadmap',desc:'Voice mode, Buddy companion, KAIROS, Coordinator mode, Remote sessions, Web browser tool, SSH, memory snapshots'},
+    {id:'memory',title:'Memory System',tag:'Resources',desc:'Memory file types, autoDream background consolidation, how memory flows into context, MEMORY.md index'},
+    {id:'sdk',title:'SDK & Programmatic Use',tag:'Resources',desc:'entrypoints/init.ts, query, stream, sub-agents, SDK options, CI/CD automation'},
+    {id:'troubleshooting',title:'Troubleshooting',tag:'Resources',desc:'Context too long, permission denied, MCP not connecting, cost spikes, tool failures, reset sequence'}
   ];
 
   var srState = {results: PAGES.slice(0,8), idx: -1};
@@ -1331,6 +1633,61 @@ This is Claude Code, Anthropic's CLI.
   });
 
 }());
+
+// ── Copy buttons ─────────────────────────────────────────────────────
+(function() {
+  function addCopyButtons() {
+    document.querySelectorAll('pre').forEach(function(pre) {
+      if (pre.querySelector('.copy-btn')) return;
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.textContent = 'copy';
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var code = pre.querySelector('code');
+        navigator.clipboard.writeText(code ? code.innerText : pre.innerText).then(function() {
+          btn.textContent = 'copied!';
+          btn.classList.add('copied');
+          setTimeout(function() { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1500);
+        });
+      });
+      pre.appendChild(btn);
+    });
+  }
+  addCopyButtons();
+}());
+
+// ── Cost calculator ──────────────────────────────────────────────────
+function calcUpdate() {
+  var workflow = document.getElementById('calc-workflow');
+  var files = document.getElementById('calc-files');
+  var model = document.getElementById('calc-model');
+  if (!workflow) return;
+
+  var base = { quick: [15000,30000,1000,3000], moderate: [50000,120000,5000,12000], complex: [150000,400000,15000,40000], research: [80000,200000,3000,10000] };
+  var prices = { sonnet: [3,15], opus: [15,75], haiku: [0.25,1.25] };
+  var tips = {
+    quick: 'Short sessions are efficient. No special optimization needed.',
+    moderate: 'Use <code>/compact</code> after completing the main task to cut context before follow-up questions.',
+    complex: 'Break complex tasks into phases with <code>/compact</code> between them. Use sub-agents for parallel research.',
+    research: 'Research sessions grow fast. Use targeted prompts — specify exact files/dirs instead of broad questions.'
+  };
+
+  var w = workflow.value, f = parseInt(files.value), m = model.value;
+  var r = base[w];
+  var fileTokens = f * 3500;
+  var inLo = r[0] + fileTokens, inHi = r[1] + fileTokens;
+  var outLo = r[2], outHi = r[3];
+  var p = prices[m];
+  var costLo = ((inLo * p[0]) + (outLo * p[1])) / 1000000;
+  var costHi = ((inHi * p[0]) + (outHi * p[1])) / 1000000;
+
+  function fmt(n) { return n >= 1000 ? Math.round(n/1000)+'K' : n; }
+  document.getElementById('calc-tokens').textContent = '~' + fmt(inLo) + '–' + fmt(inHi);
+  document.getElementById('calc-output').textContent = '~' + fmt(outLo) + '–' + fmt(outHi);
+  document.getElementById('calc-cost').textContent = '$' + costLo.toFixed(2) + '–$' + costHi.toFixed(2);
+  document.getElementById('calc-tip').innerHTML = '<strong>Tip:</strong> ' + tips[w];
+}
 </script>
 </body>
 </html>
