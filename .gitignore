@@ -1,0 +1,9 @@
+# Ignore everything
+*
+
+# Except the docs folder
+!docs/
+!docs/**
+
+# And git/config files
+!.gitignore
