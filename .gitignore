@@ -7,3 +7,4 @@
 
 # And git/config files
 !.gitignore
+!README.md
