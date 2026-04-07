@@ -191,6 +191,8 @@ tr:hover td { background: var(--surface); }
     <div class="nl" data-page="services"><span class="dot" style="background:var(--muted)"></span>Services</div>
     <div class="nl" data-page="pm-guide"><span class="dot" style="background:var(--accent)"></span>PM Guide &amp; Token Tips</div>
     <div class="nl" data-page="code-structure"><span class="dot" style="background:var(--accent2)"></span>Code Structure Reference</div>
+    <div class="nl" data-page="token-optimization"><span class="dot" style="background:var(--warn)"></span>Token Optimization</div>
+    <div class="nl" data-page="upcoming-features"><span class="dot" style="background:var(--accent4)"></span>Upcoming Features</div>
   </div>
 </nav>
 
@@ -224,6 +226,8 @@ tr:hover td { background: var(--surface); }
     <div class="oc b" data-page="agents"><div class="oi">🤖</div><div class="ott">Agents &amp; Tasks</div><div class="of">Task.ts · AgentTool</div><div class="od">Sub-agents, async task tracking, swarm/teams multi-agent mode.</div><div class="oa">→</div></div>
     <div class="oc o" data-page="components"><div class="oi">🖥️</div><div class="ott">UI Components</div><div class="of">components/ (Ink/React)</div><div class="od">Terminal UI in React+Ink. App→REPL→Messages→PromptInput.</div><div class="oa">→</div></div>
     <div class="oc g" data-page="pm-guide"><div class="oi">💡</div><div class="ott">PM Guide &amp; Token Tips</div><div class="of">for product managers</div><div class="od">How PMs use Claude Code effectively and control token cost.</div><div class="oa">→</div></div>
+    <div class="oc y" data-page="token-optimization"><div class="oi">⚡</div><div class="ott">Token Optimization</div><div class="of">query.ts · constants/ · compact/</div><div class="od">What drives token usage, where in the code it happens, and how to reduce it.</div><div class="oa">→</div></div>
+    <div class="oc p" data-page="upcoming-features"><div class="oi">🚀</div><div class="ott">Upcoming Features</div><div class="of">feature flags · new dirs</div><div class="od">Voice, Buddy, KAIROS, Coordinator mode, Remote sessions and more in development.</div><div class="oa">→</div></div>
   </div>
   <h2>Entry point</h2>
   <div class="callout info"><div class="ct2">main.tsx → QueryEngine → query.ts → Anthropic API</div>Every interaction traces this path. Understanding it unlocks everything else.</div>
@@ -822,6 +826,113 @@ This is Claude Code, Anthropic's CLI.
   </table>
 </section>
 
+
+<!-- TOKEN OPTIMIZATION -->
+<section class="page" id="page-token-optimization">
+  <div class="ph"><div class="pt">Deep Dive</div><div class="pp">Token Optimization</div><div class="pd">What causes high token usage in Claude Code, where it happens in the source code, and what can be improved.</div></div>
+
+  <div class="callout warn"><div class="ct2">Why this matters</div>Every API call sends the full conversation history. Token count = cost + latency. Understanding the sources lets you design features and workflows that stay lean.</div>
+
+  <h2>Top causes of high token usage</h2>
+  <table>
+    <thead><tr><th>Source</th><th>Token impact</th><th>File / location</th></tr></thead>
+    <tbody>
+      <tr><td><strong>System prompt rebuilt every turn</strong></td><td>500–2,000 tokens/call</td><td><code>constants/prompts.ts:444+</code></td></tr>
+      <tr><td><strong>Full history sent each turn</strong></td><td>Grows unbounded</td><td><code>query.ts:300–550</code></td></tr>
+      <tr><td><strong>Tool result verbosity</strong></td><td>Up to 50K chars per tool, 200K per message</td><td><code>constants/toolLimits.ts:13,33,49</code></td></tr>
+      <tr><td><strong>Tool schemas for all tools</strong></td><td>~3–10 tokens/tool × 100+ tools</td><td><code>services/api/claude.ts:1235–1246</code></td></tr>
+      <tr><td><strong>User context prepend</strong></td><td>100–500 tokens/call (CLAUDE.md + git status)</td><td><code>utils/api.ts:449–474</code></td></tr>
+      <tr><td><strong>MCP instruction section</strong></td><td>Variable (server-dependent) — marked <code>DANGEROUS_uncached</code></td><td><code>constants/prompts.ts:513–520</code></td></tr>
+      <tr><td><strong>Image/media attachments</strong></td><td>High per image; max 100 items enforced</td><td><code>services/api/claude.ts:1308–1315</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>What's already optimized</h2>
+  <div class="cards">
+    <div class="card"><div class="ct">Auto-Compaction</div><div class="cd">Triggers at ~187K of 200K context. 13K buffer kept. <code>services/compact/autoCompact.ts:62–64</code></div><span class="badge bg">Active</span></div>
+    <div class="card"><div class="ct">Prompt Caching</div><div class="cd">Static system prompt cached globally; dynamic sections at org scope. Cache boundary via <code>SYSTEM_PROMPT_DYNAMIC_BOUNDARY</code>.</div><span class="badge bg">Active</span></div>
+    <div class="card"><div class="ct">Tool Result Persistence</div><div class="cd">Results over threshold spilled to disk; only a preview sent in context. <code>utils/toolResultStorage.ts</code></div><span class="badge bg">Active</span></div>
+    <div class="card"><div class="ct">Microcompaction</div><div class="cd">Pre-pass before main autocompact to prune small gains. Feature-flagged <code>CACHED_MICROCOMPACT</code>.</div><span class="badge bb">Flagged</span></div>
+    <div class="card"><div class="ct">Deferred Tool Loading</div><div class="cd">Tool schemas hidden until tool search requests them, trading schema tokens for a deferred list block.</div><span class="badge bb">Flagged</span></div>
+    <div class="card"><div class="ct">Reactive Compaction</div><div class="cd">Fallback when proactive compaction fails. Intercepts 413 errors and retries with context collapsed. <code>query.ts:800–813</code></div><span class="badge bb">Flagged</span></div>
+    <div class="card"><div class="ct">Image Stripping</div><div class="cd">Images removed from messages before compaction. <code>services/compact/compact.ts:145–150</code></div><span class="badge bg">Active</span></div>
+    <div class="card"><div class="ct">Post-Compact Budgets</div><div class="cd">50K token budget after compact; max 5 files restored at 5K each. <code>compact.ts:122–130</code></div><span class="badge bg">Active</span></div>
+  </div>
+
+  <h2>Improvement opportunities</h2>
+  <div class="tl">
+    <div class="ti"><div class="tl-tag">High impact</div><div class="tl-t">CLAUDE.md size</div><div class="tl-d">CLAUDE.md is injected into every API call via <code>context.ts</code>. Bloated CLAUDE.md files (common in enterprise projects) add hundreds of tokens permanently. Teams should audit and trim. Opportunity: lazy-load sections by topic.</div></div>
+    <div class="ti"><div class="tl-tag">High impact</div><div class="tl-t">Verbose Bash output</div><div class="tl-d">Bash commands with verbose stdout (build logs, test output) blow up tool results. The 50K char cap helps but comes late. Opportunity: auto-truncation hints in the tool description or smarter output summarization before storage.</div></div>
+    <div class="ti"><div class="tl-tag">Medium impact</div><div class="tl-t">MCP instructions not cacheable</div><div class="tl-d"><code>prompts.ts:513–520</code> marks MCP instructions <code>DANGEROUS_uncached</code> because servers connect/disconnect dynamically. If MCP server set stabilizes, this section could be cached. Opportunity: session-scoped caching once server set is locked in.</div></div>
+    <div class="ti"><div class="tl-tag">Medium impact</div><div class="tl-t">Full file reads</div><div class="tl-d"><code>FileReadTool</code> supports <code>offset</code>/<code>limit</code> params but the model must think to use them. Opportunity: default to a head preview + "read more" pattern for files over N lines, similar to how tool result persistence works.</div></div>
+    <div class="ti"><div class="tl-tag">Low/medium impact</div><div class="tl-t">Token-efficient JSON tools flag</div><div class="tl-d">GrowthBook flag <code>tengu_amber_json_tools</code> (default: false) enables token-efficient JSON tool formatting. Currently off by default — enabling broadly could yield measurable savings at scale.</div></div>
+  </div>
+
+  <h2>Concrete numbers</h2>
+  <table>
+    <thead><tr><th>Constant</th><th>Value</th><th>File</th></tr></thead>
+    <tbody>
+      <tr><td><code>DEFAULT_MAX_RESULT_SIZE_CHARS</code></td><td>50,000 chars</td><td><code>constants/toolLimits.ts:13</code></td></tr>
+      <tr><td><code>MAX_TOOL_RESULT_BYTES</code></td><td>400 KB</td><td><code>constants/toolLimits.ts:33</code></td></tr>
+      <tr><td><code>MAX_TOOL_RESULTS_PER_MESSAGE_CHARS</code></td><td>200,000 chars</td><td><code>constants/toolLimits.ts:49</code></td></tr>
+      <tr><td><code>AUTOCOMPACT_BUFFER_TOKENS</code></td><td>13,000</td><td><code>services/compact/autoCompact.ts:62</code></td></tr>
+      <tr><td><code>MODEL_CONTEXT_WINDOW_DEFAULT</code></td><td>200,000</td><td><code>utils/context.ts:9</code></td></tr>
+      <tr><td><code>POST_COMPACT_TOKEN_BUDGET</code></td><td>50,000</td><td><code>services/compact/compact.ts:123</code></td></tr>
+      <tr><td><code>COMPACT_MAX_OUTPUT_TOKENS</code></td><td>20,000</td><td><code>utils/context.ts:12</code></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout tip"><div class="ct2">PM takeaway</div>The biggest lever users have is <strong>session hygiene</strong>: use <code>/compact</code> after major subtasks, use targeted prompts instead of broad explorations, keep CLAUDE.md lean, and use sub-agents for parallel research (each gets a fresh context window).</div>
+</section>
+
+<!-- UPCOMING FEATURES -->
+<section class="page" id="page-upcoming-features">
+  <div class="ph"><div class="pt">Roadmap</div><div class="pp">Upcoming Features</div><div class="pd">Features currently in development or behind feature flags — discovered by reading the source code directly.</div></div>
+
+  <div class="callout info"><div class="ct2">Source of truth</div>These features are identified from GrowthBook feature flags, new directories, and in-progress code in the source. Build-time flags use Bun dead-code elimination — flagged code is fully removed from external builds.</div>
+
+  <h2>In active development</h2>
+  <div class="cards">
+    <div class="card"><div class="ci">🎤</div><div class="ct">Voice Mode</div><div class="cd">Push-to-talk (Space key) speech-to-text input. Streams to Claude.ai voice endpoint. Requires Anthropic OAuth + microphone access.</div><span class="badge by">Flag: VOICE_MODE</span></div>
+    <div class="card"><div class="ci">🐾</div><div class="ct">Buddy Companion</div><div class="cd">Animated companion sprite system. Species/rarity assigned deterministically from userId hash. 500ms animation tick. Revealed via <code>/buddy</code> command.</div><span class="badge by">Flag: BUDDY</span></div>
+    <div class="card"><div class="ci">🤖</div><div class="ct">KAIROS Assistant Mode</div><div class="cd">Persistent assistant mode for multi-agent orchestration. Has "brief" and "channels" variants. Separate session history via CCR API pagination.</div><span class="badge bp">Flag: KAIROS</span></div>
+    <div class="card"><div class="ci">👥</div><div class="ct">Coordinator Mode</div><div class="cd">Multi-agent team workflows. Coordinator orchestrates teammate agents with TeamCreate/Delete/SendMessage tools. Gated on scratchpad support.</div><span class="badge bb">Flag: COORDINATOR_MODE</span></div>
+    <div class="card"><div class="ci">🌐</div><div class="ct">Remote Sessions (CCR)</div><div class="cd">Claude Code Relay — WebSocket-based remote session management. Handles permission requests/responses over the wire for remote agents.</div><span class="badge bg">Flag: CCR_MIRROR</span></div>
+    <div class="card"><div class="ci">🖥️</div><div class="ct">Web Browser Tool</div><div class="cd">WebView-based browser integration (macOS-specific). Allows model to interact with web UIs, not just fetch static content.</div><span class="badge bo">Flag: WEB_BROWSER_TOOL</span></div>
+    <div class="card"><div class="ci">🔗</div><div class="ct">SSH Remote Execution</div><div class="cd">Run Claude Code agents over SSH on remote machines. Expands the "where code runs" surface beyond the local machine.</div><span class="badge bb">Flag: SSH_REMOTE</span></div>
+    <div class="card"><div class="ci">💾</div><div class="ct">Agent Memory Snapshots</div><div class="cd">Snapshot and restore agent memory state. Enables pausing and resuming long-running agent workflows across sessions.</div><span class="badge bp">Flag: AGENT_MEMORY_SNAPSHOT</span></div>
+    <div class="card"><div class="ci">🔔</div><div class="ct">Background Sessions</div><div class="cd">Agent CLI background execution with inbox delivery via Unix domain socket. Agents run without a foreground terminal.</div><span class="badge bg">Flags: BG_SESSIONS, UDS_INBOX</span></div>
+    <div class="card"><div class="ci">☁️</div><div class="ct">Settings Cloud Sync</div><div class="cd">Upload and sync user settings to Anthropic cloud. Enables settings portability across machines.</div><span class="badge bb">Flag: UPLOAD_USER_SETTINGS</span></div>
+  </div>
+
+  <h2>New tools shipping with upcoming features</h2>
+  <table>
+    <thead><tr><th>Tool</th><th>Feature</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>TeamCreateTool</code> / <code>TeamDeleteTool</code></td><td>Coordinator mode</td><td>Create and tear down multi-agent teams for parallel task execution</td></tr>
+      <tr><td><code>RemoteTriggerTool</code></td><td>Remote sessions</td><td>Trigger remote agent workflows via CCR</td></tr>
+      <tr><td><code>McpAuthTool</code></td><td>MCP</td><td>OAuth authentication flow for MCP servers requiring auth</td></tr>
+      <tr><td><code>ListMcpResourcesTool</code> / <code>ReadMcpResourceTool</code></td><td>MCP</td><td>Browse and read MCP resource endpoints (not just tools)</td></tr>
+      <tr><td><code>ScheduleCronTool</code></td><td>Background sessions</td><td>Schedule recurring agent tasks on a cron schedule</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Runtime GrowthBook flags (on/off switches)</h2>
+  <table>
+    <thead><tr><th>Flag</th><th>Default</th><th>What it controls</th></tr></thead>
+    <tbody>
+      <tr><td><code>tengu_amber_quartz_disabled</code></td><td>enabled</td><td>Kill-switch for voice mode</td></tr>
+      <tr><td><code>tengu_amber_stoat</code></td><td>true</td><td>Built-in agents gate</td></tr>
+      <tr><td><code>tengu_amber_flint</code></td><td>true</td><td>Agent swarms kill-switch</td></tr>
+      <tr><td><code>tengu_amber_json_tools</code></td><td>false</td><td>Token-efficient JSON tool formatting (see Token Optimization page)</td></tr>
+      <tr><td><code>tengu_amber_prism</code></td><td>false</td><td>Memory correction hints</td></tr>
+      <tr><td><code>tengu_amber_wren</code></td><td>false</td><td>File reading limit overrides (experimental)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout tip"><div class="ct2">Architecture pattern</div>All new features follow the same pattern: <strong>GrowthBook build-time flag → new directory → new tool(s) → wired into tools.ts</strong>. The flag gates the entire feature at build time — zero code ships to external users until the flag is flipped.</div>
+</section>
+
 </main>
 </div>
 
@@ -856,7 +967,9 @@ This is Claude Code, Anthropic's CLI.
     {id:'components',title:'UI Components',tag:'Platform',desc:'App.tsx, REPL.tsx, Messages, PromptInput, diff, permissions dialogs, Ink'},
     {id:'services',title:'Services',tag:'Platform',desc:'api, mcp, compact, analytics, plugins, oauth, autoDream, lsp, settingsSync, voice'},
     {id:'pm-guide',title:'PM Guide & Token Tips',tag:'For PMs',desc:'How PMs use Claude Code, token cost strategies, CLAUDE.md, workflows'},
-    {id:'code-structure',title:'Code Structure Reference',tag:'Reference',desc:'Every file in the codebase: what it does, its role, and why it exists — for PMs'}
+    {id:'code-structure',title:'Code Structure Reference',tag:'Reference',desc:'Every file in the codebase: what it does, its role, and why it exists — for PMs'},
+    {id:'token-optimization',title:'Token Optimization',tag:'Deep Dive',desc:'Top causes of token usage, concrete numbers, what is already optimized, and improvement opportunities'},
+    {id:'upcoming-features',title:'Upcoming Features',tag:'Roadmap',desc:'Voice mode, Buddy companion, KAIROS, Coordinator mode, Remote sessions, Web browser tool, SSH, memory snapshots'}
   ];
 
   var srState = {results: PAGES.slice(0,8), idx: -1};
